@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  homepage: 'https://GiovanniDw.github.io/PortfolioWebDev/',
   base: '/PortfolioWebDev/',
   plugins: [vue()],
   resolve: {
@@ -22,7 +23,6 @@ export default defineConfig({
     port: 8000,
   },
   build: {
-    outDir: 'docs',
     sourcemap: true,
     minify: false,
   }

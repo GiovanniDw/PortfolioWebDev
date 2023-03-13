@@ -2,9 +2,12 @@
   "name": "portfoliowebdev",
   "version": "0.0.0",
   "private": true,
+  "homepage": "https://GiovanniDw.github.io/PortfolioWebDev/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "predeploy": "yarn build",
+    "deploy": "gh-pages -d dist",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "format": "prettier --write src/"
@@ -22,6 +25,7 @@
     "@vue/eslint-config-prettier": "^7.1.0",
     "eslint": "^8.34.0",
     "eslint-plugin-vue": "^9.9.0",
+    "gh-pages": "^5.0.0",
     "prettier": "^2.8.4",
     "vite": "^4.1.4"
   }
