@@ -1,5 +1,5 @@
 
-header[data-v-f30448d3] {
+header[data-v-7a7a37b1] {
   display: flex;
   line-height: 1.5;
   justify-content: center;
@@ -7,11 +7,11 @@ header[data-v-f30448d3] {
   padding: 1rem;
   /* max-height: 100vh; */
 }
-.logo[data-v-f30448d3] {
+.logo[data-v-7a7a37b1] {
   display: block;
   /* margin: 0 auto 2rem; */
 }
-nav[data-v-f30448d3] {
+nav[data-v-7a7a37b1] {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,18 +20,18 @@ nav[data-v-f30448d3] {
   text-align: center;
   /* margin-top: 2rem; */
 }
-nav a.router-link-exact-active[data-v-f30448d3] {
+nav a.router-link-exact-active[data-v-7a7a37b1] {
   color: var(--color-text);
 }
-nav a.router-link-exact-active[data-v-f30448d3]:hover {
+nav a.router-link-exact-active[data-v-7a7a37b1]:hover {
   background-color: transparent;
 }
-nav a[data-v-f30448d3] {
+nav a[data-v-7a7a37b1] {
   display: inline-block;
   padding: 1rem;
   /* border-left: 1px solid var(--color-border); */
 }
-nav a[data-v-f30448d3]:first-of-type {
+nav a[data-v-7a7a37b1]:first-of-type {
   border: 0;
 }
 /* 
@@ -62,7 +62,7 @@ nav a[data-v-f30448d3]:first-of-type {
   }
 } */
 .hero {
-  min-height: 80vh;
+  background-color: gray;
   width: 100%;
 }/* color palette from <https://github.com/vuejs/theme> */
 :root {

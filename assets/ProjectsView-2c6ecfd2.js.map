@@ -1,0 +1,1 @@
+{"version":3,"file":"ProjectsView-2c6ecfd2.js","sources":["../../src/views/ProjectsView.vue"],"sourcesContent":["<script setup></script>\n\n<template>\n  <main class=\"project\">\n    <h1>Projects</h1>\n  </main>\n</template>\n\n<style lang=\"scss\"></style>\n"],"names":[],"mappings":";;AAII,MAAA,aAAA,EAAA,OAAA,UAAA;;;;;;;;MAAiB,aAAA;AAAA;;AADnB,SAAA,YAAA,MAAA,QAAA;;;;"}

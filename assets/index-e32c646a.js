@@ -40,12 +40,12 @@
   }
 })();
 function makeMap(str, expectsLowerCase) {
-  const map = /* @__PURE__ */ Object.create(null);
+  const map2 = /* @__PURE__ */ Object.create(null);
   const list = str.split(",");
   for (let i = 0; i < list.length; i++) {
-    map[list[i]] = true;
+    map2[list[i]] = true;
   }
-  return expectsLowerCase ? (val) => !!map[val.toLowerCase()] : (val) => !!map[val];
+  return expectsLowerCase ? (val) => !!map2[val.toLowerCase()] : (val) => !!map2[val];
 }
 function normalizeStyle(value) {
   if (isArray$1(value)) {
@@ -99,13 +99,39 @@ function normalizeClass(value) {
   }
   return res.trim();
 }
+const HTML_TAGS = "html,body,base,head,link,meta,style,title,address,article,aside,footer,header,hgroup,h1,h2,h3,h4,h5,h6,nav,section,div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul,a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,ruby,s,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video,embed,object,param,source,canvas,script,noscript,del,ins,caption,col,colgroup,table,thead,tbody,td,th,tr,button,datalist,fieldset,form,input,label,legend,meter,optgroup,option,output,progress,select,textarea,details,dialog,menu,summary,template,blockquote,iframe,tfoot";
+const SVG_TAGS = "svg,animate,animateMotion,animateTransform,circle,clipPath,color-profile,defs,desc,discard,ellipse,feBlend,feColorMatrix,feComponentTransfer,feComposite,feConvolveMatrix,feDiffuseLighting,feDisplacementMap,feDistantLight,feDropShadow,feFlood,feFuncA,feFuncB,feFuncG,feFuncR,feGaussianBlur,feImage,feMerge,feMergeNode,feMorphology,feOffset,fePointLight,feSpecularLighting,feSpotLight,feTile,feTurbulence,filter,foreignObject,g,hatch,hatchpath,image,line,linearGradient,marker,mask,mesh,meshgradient,meshpatch,meshrow,metadata,mpath,path,pattern,polygon,polyline,radialGradient,rect,set,solidcolor,stop,switch,symbol,text,textPath,title,tspan,unknown,use,view";
+const isHTMLTag = /* @__PURE__ */ makeMap(HTML_TAGS);
+const isSVGTag = /* @__PURE__ */ makeMap(SVG_TAGS);
 const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`;
 const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
 function includeBooleanAttr(value) {
   return !!value || value === "";
 }
-const EMPTY_OBJ = {};
-const EMPTY_ARR = [];
+const toDisplayString = (val) => {
+  return isString(val) ? val : val == null ? "" : isArray$1(val) || isObject(val) && (val.toString === objectToString || !isFunction(val.toString)) ? JSON.stringify(val, replacer, 2) : String(val);
+};
+const replacer = (_key, val) => {
+  if (val && val.__v_isRef) {
+    return replacer(_key, val.value);
+  } else if (isMap(val)) {
+    return {
+      [`Map(${val.size})`]: [...val.entries()].reduce((entries, [key, val2]) => {
+        entries[`${key} =>`] = val2;
+        return entries;
+      }, {})
+    };
+  } else if (isSet(val)) {
+    return {
+      [`Set(${val.size})`]: [...val.values()]
+    };
+  } else if (isObject(val) && !isArray$1(val) && !isPlainObject$1(val)) {
+    return String(val);
+  }
+  return val;
+};
+const EMPTY_OBJ = Object.freeze({});
+const EMPTY_ARR = Object.freeze([]);
 const NOOP = () => {
 };
 const NO = () => false;
@@ -136,12 +162,13 @@ const toTypeString = (value) => objectToString.call(value);
 const toRawType = (value) => {
   return toTypeString(value).slice(8, -1);
 };
-const isPlainObject = (val) => toTypeString(val) === "[object Object]";
+const isPlainObject$1 = (val) => toTypeString(val) === "[object Object]";
 const isIntegerKey = (key) => isString(key) && key !== "NaN" && key[0] !== "-" && "" + parseInt(key, 10) === key;
 const isReservedProp = /* @__PURE__ */ makeMap(
   // the leading comma is intentional so empty string "" is also included
   ",key,ref,ref_for,ref_key,onVnodeBeforeMount,onVnodeMounted,onVnodeBeforeUpdate,onVnodeUpdated,onVnodeBeforeUnmount,onVnodeUnmounted"
 );
+const isBuiltInDirective = /* @__PURE__ */ makeMap("bind,cloak,else-if,else,for,html,if,model,on,once,pre,show,slot,text,memo");
 const cacheStringFunction = (fn) => {
   const cache = /* @__PURE__ */ Object.create(null);
   return (str) => {
@@ -174,10 +201,17 @@ const looseToNumber = (val) => {
   const n = parseFloat(val);
   return isNaN(n) ? val : n;
 };
+const toNumber = (val) => {
+  const n = isString(val) ? Number(val) : NaN;
+  return isNaN(n) ? val : n;
+};
 let _globalThis;
 const getGlobalThis = () => {
-  return _globalThis || (_globalThis = typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : {});
+  return _globalThis || (_globalThis = typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : typeof {} !== "undefined" ? {} : {});
 };
+function warn$2(msg, ...args) {
+  console.warn(`[Vue warn] ${msg}`, ...args);
+}
 let activeEffectScope;
 class EffectScope {
   constructor(detached = false) {
@@ -202,6 +236,8 @@ class EffectScope {
       } finally {
         activeEffectScope = currentEffectScope;
       }
+    } else {
+      warn$2(`cannot run an inactive effect scope.`);
     }
   }
   /**
@@ -244,6 +280,9 @@ class EffectScope {
     }
   }
 }
+function effectScope(detached) {
+  return new EffectScope(detached);
+}
 function recordEffectScope(effect, scope = activeEffectScope) {
   if (scope && scope.active) {
     scope.effects.push(effect);
@@ -251,6 +290,13 @@ function recordEffectScope(effect, scope = activeEffectScope) {
 }
 function getCurrentScope() {
   return activeEffectScope;
+}
+function onScopeDispose(fn) {
+  if (activeEffectScope) {
+    activeEffectScope.cleanups.push(fn);
+  } else {
+    warn$2(`onScopeDispose() is called when there is no active effect scope to be associated with.`);
+  }
 }
 const createDep = (effects) => {
   const dep = new Set(effects);
@@ -289,8 +335,8 @@ let effectTrackDepth = 0;
 let trackOpBit = 1;
 const maxMarkerBits = 30;
 let activeEffect;
-const ITERATE_KEY = Symbol("");
-const MAP_KEY_ITERATE_KEY = Symbol("");
+const ITERATE_KEY = Symbol("iterate");
+const MAP_KEY_ITERATE_KEY = Symbol("Map key iterate");
 class ReactiveEffect {
   constructor(fn, scheduler = null, scope) {
     this.fn = fn;
@@ -377,7 +423,8 @@ function track(target, type, key) {
     if (!dep) {
       depsMap.set(key, dep = createDep());
     }
-    trackEffects(dep);
+    const eventInfo = { effect: activeEffect, target, type, key };
+    trackEffects(dep, eventInfo);
   }
 }
 function trackEffects(dep, debuggerEventExtraInfo) {
@@ -393,6 +440,9 @@ function trackEffects(dep, debuggerEventExtraInfo) {
   if (shouldTrack2) {
     dep.add(activeEffect);
     activeEffect.deps.push(dep);
+    if (activeEffect.onTrack) {
+      activeEffect.onTrack(Object.assign({ effect: activeEffect }, debuggerEventExtraInfo));
+    }
   }
 }
 function trigger(target, type, key, newValue, oldValue, oldTarget) {
@@ -440,10 +490,11 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
         break;
     }
   }
+  const eventInfo = { target, type, key, newValue, oldValue, oldTarget };
   if (deps.length === 1) {
     if (deps[0]) {
       {
-        triggerEffects(deps[0]);
+        triggerEffects(deps[0], eventInfo);
       }
     }
   } else {
@@ -454,7 +505,7 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
       }
     }
     {
-      triggerEffects(createDep(effects));
+      triggerEffects(createDep(effects), eventInfo);
     }
   }
 }
@@ -462,23 +513,30 @@ function triggerEffects(dep, debuggerEventExtraInfo) {
   const effects = isArray$1(dep) ? dep : [...dep];
   for (const effect of effects) {
     if (effect.computed) {
-      triggerEffect(effect);
+      triggerEffect(effect, debuggerEventExtraInfo);
     }
   }
   for (const effect of effects) {
     if (!effect.computed) {
-      triggerEffect(effect);
+      triggerEffect(effect, debuggerEventExtraInfo);
     }
   }
 }
 function triggerEffect(effect, debuggerEventExtraInfo) {
   if (effect !== activeEffect || effect.allowRecurse) {
+    if (effect.onTrigger) {
+      effect.onTrigger(extend({ effect }, debuggerEventExtraInfo));
+    }
     if (effect.scheduler) {
       effect.scheduler();
     } else {
       effect.run();
     }
   }
+}
+function getDepFromReactive(object, key) {
+  var _a2;
+  return (_a2 = targetMap.get(object)) === null || _a2 === void 0 ? void 0 : _a2.get(key);
 }
 const isNonTrackableKeys = /* @__PURE__ */ makeMap(`__proto__,__v_isRef,__isVue`);
 const builtInSymbols = new Set(
@@ -487,6 +545,7 @@ const builtInSymbols = new Set(
 const get$1 = /* @__PURE__ */ createGetter();
 const shallowGet = /* @__PURE__ */ createGetter(false, true);
 const readonlyGet = /* @__PURE__ */ createGetter(true);
+const shallowReadonlyGet = /* @__PURE__ */ createGetter(true, true);
 const arrayInstrumentations = /* @__PURE__ */ createArrayInstrumentations();
 function createArrayInstrumentations() {
   const instrumentations = {};
@@ -558,7 +617,7 @@ function createGetter(isReadonly2 = false, shallow = false) {
     return res;
   };
 }
-const set$1 = /* @__PURE__ */ createSetter();
+const set$1$1 = /* @__PURE__ */ createSetter();
 const shallowSet = /* @__PURE__ */ createSetter(true);
 function createSetter(shallow = false) {
   return function set2(target, key, value, receiver) {
@@ -567,7 +626,7 @@ function createSetter(shallow = false) {
       return false;
     }
     if (!shallow) {
-      if (!isShallow(value) && !isReadonly(value)) {
+      if (!isShallow$1(value) && !isReadonly(value)) {
         oldValue = toRaw(oldValue);
         value = toRaw(value);
       }
@@ -582,7 +641,7 @@ function createSetter(shallow = false) {
       if (!hadKey) {
         trigger(target, "add", key, value);
       } else if (hasChanged(value, oldValue)) {
-        trigger(target, "set", key, value);
+        trigger(target, "set", key, value, oldValue);
       }
     }
     return result;
@@ -590,10 +649,10 @@ function createSetter(shallow = false) {
 }
 function deleteProperty(target, key) {
   const hadKey = hasOwn(target, key);
-  target[key];
+  const oldValue = target[key];
   const result = Reflect.deleteProperty(target, key);
   if (result && hadKey) {
-    trigger(target, "delete", key, void 0);
+    trigger(target, "delete", key, void 0, oldValue);
   }
   return result;
 }
@@ -610,7 +669,7 @@ function ownKeys(target) {
 }
 const mutableHandlers = {
   get: get$1,
-  set: set$1,
+  set: set$1$1,
   deleteProperty,
   has: has$1,
   ownKeys
@@ -618,15 +677,24 @@ const mutableHandlers = {
 const readonlyHandlers = {
   get: readonlyGet,
   set(target, key) {
+    {
+      warn$2(`Set operation on key "${String(key)}" failed: target is readonly.`, target);
+    }
     return true;
   },
   deleteProperty(target, key) {
+    {
+      warn$2(`Delete operation on key "${String(key)}" failed: target is readonly.`, target);
+    }
     return true;
   }
 };
 const shallowReactiveHandlers = /* @__PURE__ */ extend({}, mutableHandlers, {
   get: shallowGet,
   set: shallowSet
+});
+const shallowReadonlyHandlers = /* @__PURE__ */ extend({}, readonlyHandlers, {
+  get: shallowReadonlyGet
 });
 const toShallow = (value) => value;
 const getProto = (v) => Reflect.getPrototypeOf(v);
@@ -687,7 +755,7 @@ function add(value) {
   }
   return this;
 }
-function set(key, value) {
+function set$2(key, value) {
   value = toRaw(value);
   const target = toRaw(this);
   const { has: has2, get: get2 } = getProto(target);
@@ -695,13 +763,15 @@ function set(key, value) {
   if (!hadKey) {
     key = toRaw(key);
     hadKey = has2.call(target, key);
+  } else {
+    checkIdentityKeys(target, has2, key);
   }
   const oldValue = get2.call(target, key);
   target.set(key, value);
   if (!hadKey) {
     trigger(target, "add", key, value);
   } else if (hasChanged(value, oldValue)) {
-    trigger(target, "set", key, value);
+    trigger(target, "set", key, value, oldValue);
   }
   return this;
 }
@@ -712,20 +782,23 @@ function deleteEntry(key) {
   if (!hadKey) {
     key = toRaw(key);
     hadKey = has2.call(target, key);
+  } else {
+    checkIdentityKeys(target, has2, key);
   }
-  get2 ? get2.call(target, key) : void 0;
+  const oldValue = get2 ? get2.call(target, key) : void 0;
   const result = target.delete(key);
   if (hadKey) {
-    trigger(target, "delete", key, void 0);
+    trigger(target, "delete", key, void 0, oldValue);
   }
   return result;
 }
 function clear() {
   const target = toRaw(this);
   const hadItems = target.size !== 0;
+  const oldTarget = isMap(target) ? new Map(target) : new Set(target);
   const result = target.clear();
   if (hadItems) {
-    trigger(target, "clear", void 0, void 0);
+    trigger(target, "clear", void 0, void 0, oldTarget);
   }
   return result;
 }
@@ -775,6 +848,10 @@ function createIterableMethod(method, isReadonly2, isShallow2) {
 }
 function createReadonlyMethod(type) {
   return function(...args) {
+    {
+      const key = args[0] ? `on key "${args[0]}" ` : ``;
+      console.warn(`${capitalize(type)} operation ${key}failed: target is readonly.`, toRaw(this));
+    }
     return type === "delete" ? false : this;
   };
 }
@@ -788,7 +865,7 @@ function createInstrumentations() {
     },
     has,
     add,
-    set,
+    set: set$2,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, false)
@@ -802,7 +879,7 @@ function createInstrumentations() {
     },
     has,
     add,
-    set,
+    set: set$2,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, true)
@@ -900,6 +977,16 @@ const shallowCollectionHandlers = {
 const readonlyCollectionHandlers = {
   get: /* @__PURE__ */ createInstrumentationGetter(true, false)
 };
+const shallowReadonlyCollectionHandlers = {
+  get: /* @__PURE__ */ createInstrumentationGetter(true, true)
+};
+function checkIdentityKeys(target, has2, key) {
+  const rawKey = toRaw(key);
+  if (rawKey !== key && has2.call(target, rawKey)) {
+    const type = toRawType(target);
+    console.warn(`Reactive ${type} contains both the raw and reactive versions of the same object${type === `Map` ? ` as keys` : ``}, which can lead to inconsistencies. Avoid differentiating between the raw and reactive versions of an object and only use the reactive version if possible.`);
+  }
+}
 const reactiveMap = /* @__PURE__ */ new WeakMap();
 const shallowReactiveMap = /* @__PURE__ */ new WeakMap();
 const readonlyMap = /* @__PURE__ */ new WeakMap();
@@ -936,8 +1023,14 @@ function shallowReactive(target) {
 function readonly(target) {
   return createReactiveObject(target, true, readonlyHandlers, readonlyCollectionHandlers, readonlyMap);
 }
+function shallowReadonly(target) {
+  return createReactiveObject(target, true, shallowReadonlyHandlers, shallowReadonlyCollectionHandlers, shallowReadonlyMap);
+}
 function createReactiveObject(target, isReadonly2, baseHandlers, collectionHandlers, proxyMap) {
   if (!isObject(target)) {
+    {
+      console.warn(`value cannot be made reactive: ${String(target)}`);
+    }
     return target;
   }
   if (target[
@@ -979,7 +1072,7 @@ function isReadonly(value) {
     /* ReactiveFlags.IS_READONLY */
   ]);
 }
-function isShallow(value) {
+function isShallow$1(value) {
   return !!(value && value[
     "__v_isShallow"
     /* ReactiveFlags.IS_SHALLOW */
@@ -1005,7 +1098,11 @@ function trackRefValue(ref2) {
   if (shouldTrack && activeEffect) {
     ref2 = toRaw(ref2);
     {
-      trackEffects(ref2.dep || (ref2.dep = createDep()));
+      trackEffects(ref2.dep || (ref2.dep = createDep()), {
+        target: ref2,
+        type: "get",
+        key: "value"
+      });
     }
   }
 }
@@ -1014,7 +1111,12 @@ function triggerRefValue(ref2, newVal) {
   const dep = ref2.dep;
   if (dep) {
     {
-      triggerEffects(dep);
+      triggerEffects(dep, {
+        target: ref2,
+        type: "set",
+        key: "value",
+        newValue: newVal
+      });
     }
   }
 }
@@ -1046,12 +1148,12 @@ class RefImpl {
     return this._value;
   }
   set value(newVal) {
-    const useDirectValue = this.__v_isShallow || isShallow(newVal) || isReadonly(newVal);
+    const useDirectValue = this.__v_isShallow || isShallow$1(newVal) || isReadonly(newVal);
     newVal = useDirectValue ? newVal : toRaw(newVal);
     if (hasChanged(newVal, this._rawValue)) {
       this._rawValue = newVal;
       this._value = useDirectValue ? newVal : toReactive(newVal);
-      triggerRefValue(this);
+      triggerRefValue(this, newVal);
     }
   }
 }
@@ -1072,6 +1174,38 @@ const shallowUnwrapHandlers = {
 };
 function proxyRefs(objectWithRefs) {
   return isReactive(objectWithRefs) ? objectWithRefs : new Proxy(objectWithRefs, shallowUnwrapHandlers);
+}
+function toRefs(object) {
+  if (!isProxy(object)) {
+    console.warn(`toRefs() expects a reactive object but received a plain one.`);
+  }
+  const ret = isArray$1(object) ? new Array(object.length) : {};
+  for (const key in object) {
+    ret[key] = toRef(object, key);
+  }
+  return ret;
+}
+class ObjectRefImpl {
+  constructor(_object, _key, _defaultValue) {
+    this._object = _object;
+    this._key = _key;
+    this._defaultValue = _defaultValue;
+    this.__v_isRef = true;
+  }
+  get value() {
+    const val = this._object[this._key];
+    return val === void 0 ? this._defaultValue : val;
+  }
+  set value(newVal) {
+    this._object[this._key] = newVal;
+  }
+  get dep() {
+    return getDepFromReactive(toRaw(this._object), this._key);
+  }
+}
+function toRef(object, key, defaultValue) {
+  const val = object[key];
+  return isRef(val) ? val : new ObjectRefImpl(object, key, defaultValue);
 }
 var _a$1;
 class ComputedRefImpl {
@@ -1114,17 +1248,240 @@ function computed$1(getterOrOptions, debugOptions, isSSR = false) {
   const onlyGetter = isFunction(getterOrOptions);
   if (onlyGetter) {
     getter = getterOrOptions;
-    setter = NOOP;
+    setter = () => {
+      console.warn("Write operation failed: computed value is readonly");
+    };
   } else {
     getter = getterOrOptions.get;
     setter = getterOrOptions.set;
   }
   const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR);
+  if (debugOptions && !isSSR) {
+    cRef.effect.onTrack = debugOptions.onTrack;
+    cRef.effect.onTrigger = debugOptions.onTrigger;
+  }
   return cRef;
 }
-function warn(msg, ...args) {
-  return;
+const stack = [];
+function pushWarningContext(vnode) {
+  stack.push(vnode);
 }
+function popWarningContext() {
+  stack.pop();
+}
+function warn$1(msg, ...args) {
+  pauseTracking();
+  const instance = stack.length ? stack[stack.length - 1].component : null;
+  const appWarnHandler = instance && instance.appContext.config.warnHandler;
+  const trace = getComponentTrace();
+  if (appWarnHandler) {
+    callWithErrorHandling(appWarnHandler, instance, 11, [
+      msg + args.join(""),
+      instance && instance.proxy,
+      trace.map(({ vnode }) => `at <${formatComponentName(instance, vnode.type)}>`).join("\n"),
+      trace
+    ]);
+  } else {
+    const warnArgs = [`[Vue warn]: ${msg}`, ...args];
+    if (trace.length && // avoid spamming console during tests
+    true) {
+      warnArgs.push(`
+`, ...formatTrace(trace));
+    }
+    console.warn(...warnArgs);
+  }
+  resetTracking();
+}
+function getComponentTrace() {
+  let currentVNode = stack[stack.length - 1];
+  if (!currentVNode) {
+    return [];
+  }
+  const normalizedStack = [];
+  while (currentVNode) {
+    const last = normalizedStack[0];
+    if (last && last.vnode === currentVNode) {
+      last.recurseCount++;
+    } else {
+      normalizedStack.push({
+        vnode: currentVNode,
+        recurseCount: 0
+      });
+    }
+    const parentInstance = currentVNode.component && currentVNode.component.parent;
+    currentVNode = parentInstance && parentInstance.vnode;
+  }
+  return normalizedStack;
+}
+function formatTrace(trace) {
+  const logs = [];
+  trace.forEach((entry, i) => {
+    logs.push(...i === 0 ? [] : [`
+`], ...formatTraceEntry(entry));
+  });
+  return logs;
+}
+function formatTraceEntry({ vnode, recurseCount }) {
+  const postfix = recurseCount > 0 ? `... (${recurseCount} recursive calls)` : ``;
+  const isRoot = vnode.component ? vnode.component.parent == null : false;
+  const open2 = ` at <${formatComponentName(vnode.component, vnode.type, isRoot)}`;
+  const close = `>` + postfix;
+  return vnode.props ? [open2, ...formatProps(vnode.props), close] : [open2 + close];
+}
+function formatProps(props) {
+  const res = [];
+  const keys = Object.keys(props);
+  keys.slice(0, 3).forEach((key) => {
+    res.push(...formatProp(key, props[key]));
+  });
+  if (keys.length > 3) {
+    res.push(` ...`);
+  }
+  return res;
+}
+function formatProp(key, value, raw) {
+  if (isString(value)) {
+    value = JSON.stringify(value);
+    return raw ? value : [`${key}=${value}`];
+  } else if (typeof value === "number" || typeof value === "boolean" || value == null) {
+    return raw ? value : [`${key}=${value}`];
+  } else if (isRef(value)) {
+    value = formatProp(key, toRaw(value.value), true);
+    return raw ? value : [`${key}=Ref<`, value, `>`];
+  } else if (isFunction(value)) {
+    return [`${key}=fn${value.name ? `<${value.name}>` : ``}`];
+  } else {
+    value = toRaw(value);
+    return raw ? value : [`${key}=`, value];
+  }
+}
+function assertNumber(val, type) {
+  if (val === void 0) {
+    return;
+  } else if (typeof val !== "number") {
+    warn$1(`${type} is not a valid number - got ${JSON.stringify(val)}.`);
+  } else if (isNaN(val)) {
+    warn$1(`${type} is NaN - the duration expression might be incorrect.`);
+  }
+}
+const ErrorTypeStrings = {
+  [
+    "sp"
+    /* LifecycleHooks.SERVER_PREFETCH */
+  ]: "serverPrefetch hook",
+  [
+    "bc"
+    /* LifecycleHooks.BEFORE_CREATE */
+  ]: "beforeCreate hook",
+  [
+    "c"
+    /* LifecycleHooks.CREATED */
+  ]: "created hook",
+  [
+    "bm"
+    /* LifecycleHooks.BEFORE_MOUNT */
+  ]: "beforeMount hook",
+  [
+    "m"
+    /* LifecycleHooks.MOUNTED */
+  ]: "mounted hook",
+  [
+    "bu"
+    /* LifecycleHooks.BEFORE_UPDATE */
+  ]: "beforeUpdate hook",
+  [
+    "u"
+    /* LifecycleHooks.UPDATED */
+  ]: "updated",
+  [
+    "bum"
+    /* LifecycleHooks.BEFORE_UNMOUNT */
+  ]: "beforeUnmount hook",
+  [
+    "um"
+    /* LifecycleHooks.UNMOUNTED */
+  ]: "unmounted hook",
+  [
+    "a"
+    /* LifecycleHooks.ACTIVATED */
+  ]: "activated hook",
+  [
+    "da"
+    /* LifecycleHooks.DEACTIVATED */
+  ]: "deactivated hook",
+  [
+    "ec"
+    /* LifecycleHooks.ERROR_CAPTURED */
+  ]: "errorCaptured hook",
+  [
+    "rtc"
+    /* LifecycleHooks.RENDER_TRACKED */
+  ]: "renderTracked hook",
+  [
+    "rtg"
+    /* LifecycleHooks.RENDER_TRIGGERED */
+  ]: "renderTriggered hook",
+  [
+    0
+    /* ErrorCodes.SETUP_FUNCTION */
+  ]: "setup function",
+  [
+    1
+    /* ErrorCodes.RENDER_FUNCTION */
+  ]: "render function",
+  [
+    2
+    /* ErrorCodes.WATCH_GETTER */
+  ]: "watcher getter",
+  [
+    3
+    /* ErrorCodes.WATCH_CALLBACK */
+  ]: "watcher callback",
+  [
+    4
+    /* ErrorCodes.WATCH_CLEANUP */
+  ]: "watcher cleanup function",
+  [
+    5
+    /* ErrorCodes.NATIVE_EVENT_HANDLER */
+  ]: "native event handler",
+  [
+    6
+    /* ErrorCodes.COMPONENT_EVENT_HANDLER */
+  ]: "component event handler",
+  [
+    7
+    /* ErrorCodes.VNODE_HOOK */
+  ]: "vnode hook",
+  [
+    8
+    /* ErrorCodes.DIRECTIVE_HOOK */
+  ]: "directive hook",
+  [
+    9
+    /* ErrorCodes.TRANSITION_HOOK */
+  ]: "transition hook",
+  [
+    10
+    /* ErrorCodes.APP_ERROR_HANDLER */
+  ]: "app errorHandler",
+  [
+    11
+    /* ErrorCodes.APP_WARN_HANDLER */
+  ]: "app warnHandler",
+  [
+    12
+    /* ErrorCodes.FUNCTION_REF */
+  ]: "ref function",
+  [
+    13
+    /* ErrorCodes.ASYNC_COMPONENT_LOADER */
+  ]: "async component loader",
+  [
+    14
+    /* ErrorCodes.SCHEDULER */
+  ]: "scheduler flush. This is likely a Vue internals bug. Please open an issue at https://new-issue.vuejs.org/?repo=vuejs/core"
+};
 function callWithErrorHandling(fn, instance, type, args) {
   let res;
   try {
@@ -1155,7 +1512,7 @@ function handleError(err, instance, type, throwInDev = true) {
   if (instance) {
     let cur = instance.parent;
     const exposedInstance = instance.proxy;
-    const errorInfo = type;
+    const errorInfo = ErrorTypeStrings[type];
     while (cur) {
       const errorCapturedHooks = cur.ec;
       if (errorCapturedHooks) {
@@ -1177,7 +1534,19 @@ function handleError(err, instance, type, throwInDev = true) {
 }
 function logError(err, type, contextVNode, throwInDev = true) {
   {
-    console.error(err);
+    const info = ErrorTypeStrings[type];
+    if (contextVNode) {
+      pushWarningContext(contextVNode);
+    }
+    warn$1(`Unhandled error${info ? ` during execution of ${info}` : ``}`);
+    if (contextVNode) {
+      popWarningContext();
+    }
+    if (throwInDev) {
+      throw err;
+    } else {
+      console.error(err);
+    }
   }
 }
 let isFlushing = false;
@@ -1189,6 +1558,7 @@ let activePostFlushCbs = null;
 let postFlushIndex = 0;
 const resolvedPromise = /* @__PURE__ */ Promise.resolve();
 let currentFlushPromise = null;
+const RECURSION_LIMIT = 100;
 function nextTick(fn) {
   const p2 = currentFlushPromise || resolvedPromise;
   return fn ? p2.then(this ? fn.bind(this) : fn) : p2;
@@ -1236,9 +1606,15 @@ function queuePostFlushCb(cb) {
   queueFlush();
 }
 function flushPreFlushCbs(seen2, i = isFlushing ? flushIndex + 1 : 0) {
+  {
+    seen2 = seen2 || /* @__PURE__ */ new Map();
+  }
   for (; i < queue.length; i++) {
     const cb = queue[i];
     if (cb && cb.pre) {
+      if (checkRecursiveUpdates(seen2, cb)) {
+        continue;
+      }
       queue.splice(i, 1);
       i--;
       cb();
@@ -1254,8 +1630,14 @@ function flushPostFlushCbs(seen2) {
       return;
     }
     activePostFlushCbs = deduped;
+    {
+      seen2 = seen2 || /* @__PURE__ */ new Map();
+    }
     activePostFlushCbs.sort((a, b) => getId(a) - getId(b));
     for (postFlushIndex = 0; postFlushIndex < activePostFlushCbs.length; postFlushIndex++) {
+      if (checkRecursiveUpdates(seen2, activePostFlushCbs[postFlushIndex])) {
+        continue;
+      }
       activePostFlushCbs[postFlushIndex]();
     }
     activePostFlushCbs = null;
@@ -1276,14 +1658,18 @@ const comparator = (a, b) => {
 function flushJobs(seen2) {
   isFlushPending = false;
   isFlushing = true;
+  {
+    seen2 = seen2 || /* @__PURE__ */ new Map();
+  }
   queue.sort(comparator);
-  const check = NOOP;
+  const check = (job) => checkRecursiveUpdates(seen2, job);
   try {
     for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {
       const job = queue[flushIndex];
       if (job && job.active !== false) {
-        if (false)
-          ;
+        if (check(job)) {
+          continue;
+        }
         callWithErrorHandling(
           job,
           null,
@@ -1295,18 +1681,248 @@ function flushJobs(seen2) {
   } finally {
     flushIndex = 0;
     queue.length = 0;
-    flushPostFlushCbs();
+    flushPostFlushCbs(seen2);
     isFlushing = false;
     currentFlushPromise = null;
     if (queue.length || pendingPostFlushCbs.length) {
-      flushJobs();
+      flushJobs(seen2);
     }
   }
+}
+function checkRecursiveUpdates(seen2, fn) {
+  if (!seen2.has(fn)) {
+    seen2.set(fn, 1);
+  } else {
+    const count = seen2.get(fn);
+    if (count > RECURSION_LIMIT) {
+      const instance = fn.ownerInstance;
+      const componentName = instance && getComponentName(instance.type);
+      warn$1(`Maximum recursive updates exceeded${componentName ? ` in component <${componentName}>` : ``}. This means you have a reactive effect that is mutating its own dependencies and thus recursively triggering itself. Possible sources include component template, render function, updated hook or watcher source function.`);
+      return true;
+    } else {
+      seen2.set(fn, count + 1);
+    }
+  }
+}
+let isHmrUpdating = false;
+const hmrDirtyComponents = /* @__PURE__ */ new Set();
+{
+  getGlobalThis().__VUE_HMR_RUNTIME__ = {
+    createRecord: tryWrap(createRecord),
+    rerender: tryWrap(rerender),
+    reload: tryWrap(reload)
+  };
+}
+const map = /* @__PURE__ */ new Map();
+function registerHMR(instance) {
+  const id = instance.type.__hmrId;
+  let record = map.get(id);
+  if (!record) {
+    createRecord(id, instance.type);
+    record = map.get(id);
+  }
+  record.instances.add(instance);
+}
+function unregisterHMR(instance) {
+  map.get(instance.type.__hmrId).instances.delete(instance);
+}
+function createRecord(id, initialDef) {
+  if (map.has(id)) {
+    return false;
+  }
+  map.set(id, {
+    initialDef: normalizeClassComponent(initialDef),
+    instances: /* @__PURE__ */ new Set()
+  });
+  return true;
+}
+function normalizeClassComponent(component) {
+  return isClassComponent(component) ? component.__vccOpts : component;
+}
+function rerender(id, newRender) {
+  const record = map.get(id);
+  if (!record) {
+    return;
+  }
+  record.initialDef.render = newRender;
+  [...record.instances].forEach((instance) => {
+    if (newRender) {
+      instance.render = newRender;
+      normalizeClassComponent(instance.type).render = newRender;
+    }
+    instance.renderCache = [];
+    isHmrUpdating = true;
+    instance.update();
+    isHmrUpdating = false;
+  });
+}
+function reload(id, newComp) {
+  const record = map.get(id);
+  if (!record)
+    return;
+  newComp = normalizeClassComponent(newComp);
+  updateComponentDef(record.initialDef, newComp);
+  const instances = [...record.instances];
+  for (const instance of instances) {
+    const oldComp = normalizeClassComponent(instance.type);
+    if (!hmrDirtyComponents.has(oldComp)) {
+      if (oldComp !== record.initialDef) {
+        updateComponentDef(oldComp, newComp);
+      }
+      hmrDirtyComponents.add(oldComp);
+    }
+    instance.appContext.optionsCache.delete(instance.type);
+    if (instance.ceReload) {
+      hmrDirtyComponents.add(oldComp);
+      instance.ceReload(newComp.styles);
+      hmrDirtyComponents.delete(oldComp);
+    } else if (instance.parent) {
+      queueJob(instance.parent.update);
+    } else if (instance.appContext.reload) {
+      instance.appContext.reload();
+    } else if (typeof window !== "undefined") {
+      window.location.reload();
+    } else {
+      console.warn("[HMR] Root or manually mounted instance modified. Full reload required.");
+    }
+  }
+  queuePostFlushCb(() => {
+    for (const instance of instances) {
+      hmrDirtyComponents.delete(normalizeClassComponent(instance.type));
+    }
+  });
+}
+function updateComponentDef(oldComp, newComp) {
+  extend(oldComp, newComp);
+  for (const key in oldComp) {
+    if (key !== "__file" && !(key in newComp)) {
+      delete oldComp[key];
+    }
+  }
+}
+function tryWrap(fn) {
+  return (id, arg) => {
+    try {
+      return fn(id, arg);
+    } catch (e) {
+      console.error(e);
+      console.warn(`[HMR] Something went wrong during Vue component hot-reload. Full reload required.`);
+    }
+  };
+}
+let devtools;
+let buffer = [];
+let devtoolsNotInstalled = false;
+function emit$1(event, ...args) {
+  if (devtools) {
+    devtools.emit(event, ...args);
+  } else if (!devtoolsNotInstalled) {
+    buffer.push({ event, args });
+  }
+}
+function setDevtoolsHook(hook, target) {
+  var _a2, _b;
+  devtools = hook;
+  if (devtools) {
+    devtools.enabled = true;
+    buffer.forEach(({ event, args }) => devtools.emit(event, ...args));
+    buffer = [];
+  } else if (
+    // handle late devtools injection - only do this if we are in an actual
+    // browser environment to avoid the timer handle stalling test runner exit
+    // (#4815)
+    typeof window !== "undefined" && // some envs mock window but not fully
+    window.HTMLElement && // also exclude jsdom
+    !((_b = (_a2 = window.navigator) === null || _a2 === void 0 ? void 0 : _a2.userAgent) === null || _b === void 0 ? void 0 : _b.includes("jsdom"))
+  ) {
+    const replay = target.__VUE_DEVTOOLS_HOOK_REPLAY__ = target.__VUE_DEVTOOLS_HOOK_REPLAY__ || [];
+    replay.push((newHook) => {
+      setDevtoolsHook(newHook, target);
+    });
+    setTimeout(() => {
+      if (!devtools) {
+        target.__VUE_DEVTOOLS_HOOK_REPLAY__ = null;
+        devtoolsNotInstalled = true;
+        buffer = [];
+      }
+    }, 3e3);
+  } else {
+    devtoolsNotInstalled = true;
+    buffer = [];
+  }
+}
+function devtoolsInitApp(app2, version2) {
+  emit$1("app:init", app2, version2, {
+    Fragment,
+    Text,
+    Comment,
+    Static
+  });
+}
+function devtoolsUnmountApp(app2) {
+  emit$1("app:unmount", app2);
+}
+const devtoolsComponentAdded = /* @__PURE__ */ createDevtoolsComponentHook(
+  "component:added"
+  /* DevtoolsHooks.COMPONENT_ADDED */
+);
+const devtoolsComponentUpdated = /* @__PURE__ */ createDevtoolsComponentHook(
+  "component:updated"
+  /* DevtoolsHooks.COMPONENT_UPDATED */
+);
+const _devtoolsComponentRemoved = /* @__PURE__ */ createDevtoolsComponentHook(
+  "component:removed"
+  /* DevtoolsHooks.COMPONENT_REMOVED */
+);
+const devtoolsComponentRemoved = (component) => {
+  if (devtools && typeof devtools.cleanupBuffer === "function" && // remove the component if it wasn't buffered
+  !devtools.cleanupBuffer(component)) {
+    _devtoolsComponentRemoved(component);
+  }
+};
+function createDevtoolsComponentHook(hook) {
+  return (component) => {
+    emit$1(hook, component.appContext.app, component.uid, component.parent ? component.parent.uid : void 0, component);
+  };
+}
+const devtoolsPerfStart = /* @__PURE__ */ createDevtoolsPerformanceHook(
+  "perf:start"
+  /* DevtoolsHooks.PERFORMANCE_START */
+);
+const devtoolsPerfEnd = /* @__PURE__ */ createDevtoolsPerformanceHook(
+  "perf:end"
+  /* DevtoolsHooks.PERFORMANCE_END */
+);
+function createDevtoolsPerformanceHook(hook) {
+  return (component, type, time) => {
+    emit$1(hook, component.appContext.app, component.uid, component, type, time);
+  };
+}
+function devtoolsComponentEmit(component, event, params) {
+  emit$1("component:emit", component.appContext.app, component, event, params);
 }
 function emit(instance, event, ...rawArgs) {
   if (instance.isUnmounted)
     return;
   const props = instance.vnode.props || EMPTY_OBJ;
+  {
+    const { emitsOptions, propsOptions: [propsOptions] } = instance;
+    if (emitsOptions) {
+      if (!(event in emitsOptions) && true) {
+        if (!propsOptions || !(toHandlerKey(event) in propsOptions)) {
+          warn$1(`Component emitted event "${event}" but it is neither declared in the emits option nor as an "${toHandlerKey(event)}" prop.`);
+        }
+      } else {
+        const validator = emitsOptions[event];
+        if (isFunction(validator)) {
+          const isValid = validator(...rawArgs);
+          if (!isValid) {
+            warn$1(`Invalid event arguments: event validation failed for event "${event}".`);
+          }
+        }
+      }
+    }
+  }
   let args = rawArgs;
   const isModelListener2 = event.startsWith("update:");
   const modelArg = isModelListener2 && event.slice(7);
@@ -1318,6 +1934,15 @@ function emit(instance, event, ...rawArgs) {
     }
     if (number) {
       args = rawArgs.map(looseToNumber);
+    }
+  }
+  {
+    devtoolsComponentEmit(instance, event, args);
+  }
+  {
+    const lowerCaseEvent = event.toLowerCase();
+    if (lowerCaseEvent !== event && props[toHandlerKey(lowerCaseEvent)]) {
+      warn$1(`Event "${lowerCaseEvent}" is emitted in component ${formatComponentName(instance, instance.type)} but the handler is registered for "${event}". Note that HTML attributes are case-insensitive and you cannot use v-on to listen to camelCase events when using in-DOM templates. You should probably use "${hyphenate(event)}" instead of "${event}".`);
     }
   }
   let handlerName;
@@ -1418,6 +2043,9 @@ function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
         setBlockTracking(1);
       }
     }
+    {
+      devtoolsComponentUpdated(ctx);
+    }
     return res;
   };
   renderFnWithContext._n = true;
@@ -1425,13 +2053,18 @@ function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
   renderFnWithContext._d = true;
   return renderFnWithContext;
 }
+let accessedAttrs = false;
 function markAttrsAccessed() {
+  accessedAttrs = true;
 }
 function renderComponentRoot(instance) {
   const { type: Component, vnode, proxy, withProxy, props, propsOptions: [propsOptions], slots, attrs, emit: emit2, render, renderCache, data, setupState, ctx, inheritAttrs } = instance;
   let result;
   let fallthroughAttrs;
   const prev = setCurrentRenderingInstance(instance);
+  {
+    accessedAttrs = false;
+  }
   try {
     if (vnode.shapeFlag & 4) {
       const proxyToUse = withProxy || proxy;
@@ -1439,9 +2072,10 @@ function renderComponentRoot(instance) {
       fallthroughAttrs = attrs;
     } else {
       const render2 = Component;
-      if (false)
-        ;
-      result = normalizeVNode(render2.length > 1 ? render2(props, false ? {
+      if (attrs === props) {
+        markAttrsAccessed();
+      }
+      result = normalizeVNode(render2.length > 1 ? render2(props, true ? {
         get attrs() {
           markAttrsAccessed();
           return attrs;
@@ -1466,6 +2100,10 @@ function renderComponentRoot(instance) {
     result = createVNode(Comment);
   }
   let root = result;
+  let setRoot = void 0;
+  if (result.patchFlag > 0 && result.patchFlag & 2048) {
+    [root, setRoot] = getChildRoot(result);
+  }
   if (fallthroughAttrs && inheritAttrs !== false) {
     const keys = Object.keys(fallthroughAttrs);
     const { shapeFlag } = root;
@@ -1475,21 +2113,88 @@ function renderComponentRoot(instance) {
           fallthroughAttrs = filterModelListeners(fallthroughAttrs, propsOptions);
         }
         root = cloneVNode(root, fallthroughAttrs);
+      } else if (!accessedAttrs && root.type !== Comment) {
+        const allAttrs = Object.keys(attrs);
+        const eventAttrs = [];
+        const extraAttrs = [];
+        for (let i = 0, l = allAttrs.length; i < l; i++) {
+          const key = allAttrs[i];
+          if (isOn(key)) {
+            if (!isModelListener(key)) {
+              eventAttrs.push(key[2].toLowerCase() + key.slice(3));
+            }
+          } else {
+            extraAttrs.push(key);
+          }
+        }
+        if (extraAttrs.length) {
+          warn$1(`Extraneous non-props attributes (${extraAttrs.join(", ")}) were passed to component but could not be automatically inherited because component renders fragment or text root nodes.`);
+        }
+        if (eventAttrs.length) {
+          warn$1(`Extraneous non-emits event listeners (${eventAttrs.join(", ")}) were passed to component but could not be automatically inherited because component renders fragment or text root nodes. If the listener is intended to be a component custom event listener only, declare it using the "emits" option.`);
+        }
       }
     }
   }
   if (vnode.dirs) {
+    if (!isElementRoot(root)) {
+      warn$1(`Runtime directive used on component with non-element root node. The directives will not function as intended.`);
+    }
     root = cloneVNode(root);
     root.dirs = root.dirs ? root.dirs.concat(vnode.dirs) : vnode.dirs;
   }
   if (vnode.transition) {
+    if (!isElementRoot(root)) {
+      warn$1(`Component inside <Transition> renders non-element root node that cannot be animated.`);
+    }
     root.transition = vnode.transition;
   }
-  {
+  if (setRoot) {
+    setRoot(root);
+  } else {
     result = root;
   }
   setCurrentRenderingInstance(prev);
   return result;
+}
+const getChildRoot = (vnode) => {
+  const rawChildren = vnode.children;
+  const dynamicChildren = vnode.dynamicChildren;
+  const childRoot = filterSingleRoot(rawChildren);
+  if (!childRoot) {
+    return [vnode, void 0];
+  }
+  const index = rawChildren.indexOf(childRoot);
+  const dynamicIndex = dynamicChildren ? dynamicChildren.indexOf(childRoot) : -1;
+  const setRoot = (updatedRoot) => {
+    rawChildren[index] = updatedRoot;
+    if (dynamicChildren) {
+      if (dynamicIndex > -1) {
+        dynamicChildren[dynamicIndex] = updatedRoot;
+      } else if (updatedRoot.patchFlag > 0) {
+        vnode.dynamicChildren = [...dynamicChildren, updatedRoot];
+      }
+    }
+  };
+  return [normalizeVNode(childRoot), setRoot];
+};
+function filterSingleRoot(children) {
+  let singleRoot;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (isVNode(child)) {
+      if (child.type !== Comment || child.children === "v-if") {
+        if (singleRoot) {
+          return;
+        } else {
+          singleRoot = child;
+        }
+      }
+    } else {
+      return;
+    }
+  }
+  return singleRoot;
 }
 const getFunctionalFallthrough = (attrs) => {
   let res;
@@ -1509,10 +2214,16 @@ const filterModelListeners = (attrs, props) => {
   }
   return res;
 };
+const isElementRoot = (vnode) => {
+  return vnode.shapeFlag & (6 | 1) || vnode.type === Comment;
+};
 function shouldUpdateComponent(prevVNode, nextVNode, optimized) {
   const { props: prevProps, children: prevChildren, component } = prevVNode;
   const { props: nextProps, children: nextChildren, patchFlag } = nextVNode;
   const emits = component.emitsOptions;
+  if ((prevChildren || nextChildren) && isHmrUpdating) {
+    return true;
+  }
   if (nextVNode.dirs || nextVNode.transition) {
     return true;
   }
@@ -1573,6 +2284,407 @@ function updateHOCHostEl({ vnode, parent }, el) {
   }
 }
 const isSuspense = (type) => type.__isSuspense;
+const SuspenseImpl = {
+  name: "Suspense",
+  // In order to make Suspense tree-shakable, we need to avoid importing it
+  // directly in the renderer. The renderer checks for the __isSuspense flag
+  // on a vnode's type and calls the `process` method, passing in renderer
+  // internals.
+  __isSuspense: true,
+  process(n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, rendererInternals) {
+    if (n1 == null) {
+      mountSuspense(n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, rendererInternals);
+    } else {
+      patchSuspense(n1, n2, container, anchor, parentComponent, isSVG, slotScopeIds, optimized, rendererInternals);
+    }
+  },
+  hydrate: hydrateSuspense,
+  create: createSuspenseBoundary,
+  normalize: normalizeSuspenseChildren
+};
+const Suspense = SuspenseImpl;
+function triggerEvent(vnode, name) {
+  const eventListener = vnode.props && vnode.props[name];
+  if (isFunction(eventListener)) {
+    eventListener();
+  }
+}
+function mountSuspense(vnode, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, rendererInternals) {
+  const { p: patch, o: { createElement } } = rendererInternals;
+  const hiddenContainer = createElement("div");
+  const suspense = vnode.suspense = createSuspenseBoundary(vnode, parentSuspense, parentComponent, container, hiddenContainer, anchor, isSVG, slotScopeIds, optimized, rendererInternals);
+  patch(null, suspense.pendingBranch = vnode.ssContent, hiddenContainer, null, parentComponent, suspense, isSVG, slotScopeIds);
+  if (suspense.deps > 0) {
+    triggerEvent(vnode, "onPending");
+    triggerEvent(vnode, "onFallback");
+    patch(
+      null,
+      vnode.ssFallback,
+      container,
+      anchor,
+      parentComponent,
+      null,
+      // fallback tree will not have suspense context
+      isSVG,
+      slotScopeIds
+    );
+    setActiveBranch(suspense, vnode.ssFallback);
+  } else {
+    suspense.resolve();
+  }
+}
+function patchSuspense(n1, n2, container, anchor, parentComponent, isSVG, slotScopeIds, optimized, { p: patch, um: unmount, o: { createElement } }) {
+  const suspense = n2.suspense = n1.suspense;
+  suspense.vnode = n2;
+  n2.el = n1.el;
+  const newBranch = n2.ssContent;
+  const newFallback = n2.ssFallback;
+  const { activeBranch, pendingBranch, isInFallback, isHydrating } = suspense;
+  if (pendingBranch) {
+    suspense.pendingBranch = newBranch;
+    if (isSameVNodeType(newBranch, pendingBranch)) {
+      patch(pendingBranch, newBranch, suspense.hiddenContainer, null, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+      if (suspense.deps <= 0) {
+        suspense.resolve();
+      } else if (isInFallback) {
+        patch(
+          activeBranch,
+          newFallback,
+          container,
+          anchor,
+          parentComponent,
+          null,
+          // fallback tree will not have suspense context
+          isSVG,
+          slotScopeIds,
+          optimized
+        );
+        setActiveBranch(suspense, newFallback);
+      }
+    } else {
+      suspense.pendingId++;
+      if (isHydrating) {
+        suspense.isHydrating = false;
+        suspense.activeBranch = pendingBranch;
+      } else {
+        unmount(pendingBranch, parentComponent, suspense);
+      }
+      suspense.deps = 0;
+      suspense.effects.length = 0;
+      suspense.hiddenContainer = createElement("div");
+      if (isInFallback) {
+        patch(null, newBranch, suspense.hiddenContainer, null, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+        if (suspense.deps <= 0) {
+          suspense.resolve();
+        } else {
+          patch(
+            activeBranch,
+            newFallback,
+            container,
+            anchor,
+            parentComponent,
+            null,
+            // fallback tree will not have suspense context
+            isSVG,
+            slotScopeIds,
+            optimized
+          );
+          setActiveBranch(suspense, newFallback);
+        }
+      } else if (activeBranch && isSameVNodeType(newBranch, activeBranch)) {
+        patch(activeBranch, newBranch, container, anchor, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+        suspense.resolve(true);
+      } else {
+        patch(null, newBranch, suspense.hiddenContainer, null, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+        if (suspense.deps <= 0) {
+          suspense.resolve();
+        }
+      }
+    }
+  } else {
+    if (activeBranch && isSameVNodeType(newBranch, activeBranch)) {
+      patch(activeBranch, newBranch, container, anchor, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+      setActiveBranch(suspense, newBranch);
+    } else {
+      triggerEvent(n2, "onPending");
+      suspense.pendingBranch = newBranch;
+      suspense.pendingId++;
+      patch(null, newBranch, suspense.hiddenContainer, null, parentComponent, suspense, isSVG, slotScopeIds, optimized);
+      if (suspense.deps <= 0) {
+        suspense.resolve();
+      } else {
+        const { timeout, pendingId } = suspense;
+        if (timeout > 0) {
+          setTimeout(() => {
+            if (suspense.pendingId === pendingId) {
+              suspense.fallback(newFallback);
+            }
+          }, timeout);
+        } else if (timeout === 0) {
+          suspense.fallback(newFallback);
+        }
+      }
+    }
+  }
+}
+let hasWarned = false;
+function createSuspenseBoundary(vnode, parent, parentComponent, container, hiddenContainer, anchor, isSVG, slotScopeIds, optimized, rendererInternals, isHydrating = false) {
+  if (!hasWarned) {
+    hasWarned = true;
+    console[console.info ? "info" : "log"](`<Suspense> is an experimental feature and its API will likely change.`);
+  }
+  const { p: patch, m: move, um: unmount, n: next, o: { parentNode, remove: remove2 } } = rendererInternals;
+  const timeout = vnode.props ? toNumber(vnode.props.timeout) : void 0;
+  {
+    assertNumber(timeout, `Suspense timeout`);
+  }
+  const suspense = {
+    vnode,
+    parent,
+    parentComponent,
+    isSVG,
+    container,
+    hiddenContainer,
+    anchor,
+    deps: 0,
+    pendingId: 0,
+    timeout: typeof timeout === "number" ? timeout : -1,
+    activeBranch: null,
+    pendingBranch: null,
+    isInFallback: true,
+    isHydrating,
+    isUnmounted: false,
+    effects: [],
+    resolve(resume = false) {
+      {
+        if (!resume && !suspense.pendingBranch) {
+          throw new Error(`suspense.resolve() is called without a pending branch.`);
+        }
+        if (suspense.isUnmounted) {
+          throw new Error(`suspense.resolve() is called on an already unmounted suspense boundary.`);
+        }
+      }
+      const { vnode: vnode2, activeBranch, pendingBranch, pendingId, effects, parentComponent: parentComponent2, container: container2 } = suspense;
+      if (suspense.isHydrating) {
+        suspense.isHydrating = false;
+      } else if (!resume) {
+        const delayEnter = activeBranch && pendingBranch.transition && pendingBranch.transition.mode === "out-in";
+        if (delayEnter) {
+          activeBranch.transition.afterLeave = () => {
+            if (pendingId === suspense.pendingId) {
+              move(
+                pendingBranch,
+                container2,
+                anchor2,
+                0
+                /* MoveType.ENTER */
+              );
+            }
+          };
+        }
+        let { anchor: anchor2 } = suspense;
+        if (activeBranch) {
+          anchor2 = next(activeBranch);
+          unmount(activeBranch, parentComponent2, suspense, true);
+        }
+        if (!delayEnter) {
+          move(
+            pendingBranch,
+            container2,
+            anchor2,
+            0
+            /* MoveType.ENTER */
+          );
+        }
+      }
+      setActiveBranch(suspense, pendingBranch);
+      suspense.pendingBranch = null;
+      suspense.isInFallback = false;
+      let parent2 = suspense.parent;
+      let hasUnresolvedAncestor = false;
+      while (parent2) {
+        if (parent2.pendingBranch) {
+          parent2.effects.push(...effects);
+          hasUnresolvedAncestor = true;
+          break;
+        }
+        parent2 = parent2.parent;
+      }
+      if (!hasUnresolvedAncestor) {
+        queuePostFlushCb(effects);
+      }
+      suspense.effects = [];
+      triggerEvent(vnode2, "onResolve");
+    },
+    fallback(fallbackVNode) {
+      if (!suspense.pendingBranch) {
+        return;
+      }
+      const { vnode: vnode2, activeBranch, parentComponent: parentComponent2, container: container2, isSVG: isSVG2 } = suspense;
+      triggerEvent(vnode2, "onFallback");
+      const anchor2 = next(activeBranch);
+      const mountFallback = () => {
+        if (!suspense.isInFallback) {
+          return;
+        }
+        patch(
+          null,
+          fallbackVNode,
+          container2,
+          anchor2,
+          parentComponent2,
+          null,
+          // fallback tree will not have suspense context
+          isSVG2,
+          slotScopeIds,
+          optimized
+        );
+        setActiveBranch(suspense, fallbackVNode);
+      };
+      const delayEnter = fallbackVNode.transition && fallbackVNode.transition.mode === "out-in";
+      if (delayEnter) {
+        activeBranch.transition.afterLeave = mountFallback;
+      }
+      suspense.isInFallback = true;
+      unmount(
+        activeBranch,
+        parentComponent2,
+        null,
+        // no suspense so unmount hooks fire now
+        true
+        // shouldRemove
+      );
+      if (!delayEnter) {
+        mountFallback();
+      }
+    },
+    move(container2, anchor2, type) {
+      suspense.activeBranch && move(suspense.activeBranch, container2, anchor2, type);
+      suspense.container = container2;
+    },
+    next() {
+      return suspense.activeBranch && next(suspense.activeBranch);
+    },
+    registerDep(instance, setupRenderEffect) {
+      const isInPendingSuspense = !!suspense.pendingBranch;
+      if (isInPendingSuspense) {
+        suspense.deps++;
+      }
+      const hydratedEl = instance.vnode.el;
+      instance.asyncDep.catch((err) => {
+        handleError(
+          err,
+          instance,
+          0
+          /* ErrorCodes.SETUP_FUNCTION */
+        );
+      }).then((asyncSetupResult) => {
+        if (instance.isUnmounted || suspense.isUnmounted || suspense.pendingId !== instance.suspenseId) {
+          return;
+        }
+        instance.asyncResolved = true;
+        const { vnode: vnode2 } = instance;
+        {
+          pushWarningContext(vnode2);
+        }
+        handleSetupResult(instance, asyncSetupResult, false);
+        if (hydratedEl) {
+          vnode2.el = hydratedEl;
+        }
+        const placeholder = !hydratedEl && instance.subTree.el;
+        setupRenderEffect(
+          instance,
+          vnode2,
+          // component may have been moved before resolve.
+          // if this is not a hydration, instance.subTree will be the comment
+          // placeholder.
+          parentNode(hydratedEl || instance.subTree.el),
+          // anchor will not be used if this is hydration, so only need to
+          // consider the comment placeholder case.
+          hydratedEl ? null : next(instance.subTree),
+          suspense,
+          isSVG,
+          optimized
+        );
+        if (placeholder) {
+          remove2(placeholder);
+        }
+        updateHOCHostEl(instance, vnode2.el);
+        {
+          popWarningContext();
+        }
+        if (isInPendingSuspense && --suspense.deps === 0) {
+          suspense.resolve();
+        }
+      });
+    },
+    unmount(parentSuspense, doRemove) {
+      suspense.isUnmounted = true;
+      if (suspense.activeBranch) {
+        unmount(suspense.activeBranch, parentComponent, parentSuspense, doRemove);
+      }
+      if (suspense.pendingBranch) {
+        unmount(suspense.pendingBranch, parentComponent, parentSuspense, doRemove);
+      }
+    }
+  };
+  return suspense;
+}
+function hydrateSuspense(node, vnode, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, rendererInternals, hydrateNode) {
+  const suspense = vnode.suspense = createSuspenseBoundary(
+    vnode,
+    parentSuspense,
+    parentComponent,
+    node.parentNode,
+    document.createElement("div"),
+    null,
+    isSVG,
+    slotScopeIds,
+    optimized,
+    rendererInternals,
+    true
+    /* hydrating */
+  );
+  const result = hydrateNode(node, suspense.pendingBranch = vnode.ssContent, parentComponent, suspense, slotScopeIds, optimized);
+  if (suspense.deps === 0) {
+    suspense.resolve();
+  }
+  return result;
+}
+function normalizeSuspenseChildren(vnode) {
+  const { shapeFlag, children } = vnode;
+  const isSlotChildren = shapeFlag & 32;
+  vnode.ssContent = normalizeSuspenseSlot(isSlotChildren ? children.default : children);
+  vnode.ssFallback = isSlotChildren ? normalizeSuspenseSlot(children.fallback) : createVNode(Comment);
+}
+function normalizeSuspenseSlot(s) {
+  let block;
+  if (isFunction(s)) {
+    const trackBlock = isBlockTreeEnabled && s._c;
+    if (trackBlock) {
+      s._d = false;
+      openBlock();
+    }
+    s = s();
+    if (trackBlock) {
+      s._d = true;
+      block = currentBlock;
+      closeBlock();
+    }
+  }
+  if (isArray$1(s)) {
+    const singleChild = filterSingleRoot(s);
+    if (!singleChild) {
+      warn$1(`<Suspense> slots expect a single root node.`);
+    }
+    s = singleChild;
+  }
+  s = normalizeVNode(s);
+  if (block && !s.dynamicChildren) {
+    s.dynamicChildren = block.filter((c) => c !== s);
+  }
+  return s;
+}
 function queueEffectWithSuspense(fn, suspense) {
   if (suspense && suspense.pendingBranch) {
     if (isArray$1(fn)) {
@@ -1584,10 +2696,21 @@ function queueEffectWithSuspense(fn, suspense) {
     queuePostFlushCb(fn);
   }
 }
+function setActiveBranch(suspense, branch) {
+  suspense.activeBranch = branch;
+  const { vnode, parentComponent } = suspense;
+  const el = vnode.el = branch.el;
+  if (parentComponent && parentComponent.subTree === vnode) {
+    parentComponent.vnode.el = el;
+    updateHOCHostEl(parentComponent, el);
+  }
+}
 function provide(key, value) {
-  if (!currentInstance)
-    ;
-  else {
+  if (!currentInstance) {
+    {
+      warn$1(`provide() can only be used inside setup().`);
+    }
+  } else {
     let provides = currentInstance.provides;
     const parentProvides = currentInstance.parent && currentInstance.parent.provides;
     if (parentProvides === provides) {
@@ -1604,28 +2727,48 @@ function inject(key, defaultValue, treatDefaultAsFactory = false) {
       return provides[key];
     } else if (arguments.length > 1) {
       return treatDefaultAsFactory && isFunction(defaultValue) ? defaultValue.call(instance.proxy) : defaultValue;
-    } else
-      ;
+    } else {
+      warn$1(`injection "${String(key)}" not found.`);
+    }
+  } else {
+    warn$1(`inject() can only be used inside setup() or functional components.`);
   }
+}
+function watchEffect(effect, options) {
+  return doWatch(effect, null, options);
 }
 const INITIAL_WATCHER_VALUE = {};
 function watch(source, cb, options) {
+  if (!isFunction(cb)) {
+    warn$1(`\`watch(fn, options?)\` signature has been moved to a separate API. Use \`watchEffect(fn, options?)\` instead. \`watch\` now only supports \`watch(source, cb, options?) signature.`);
+  }
   return doWatch(source, cb, options);
 }
 function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EMPTY_OBJ) {
+  if (!cb) {
+    if (immediate !== void 0) {
+      warn$1(`watch() "immediate" option is only respected when using the watch(source, callback, options?) signature.`);
+    }
+    if (deep !== void 0) {
+      warn$1(`watch() "deep" option is only respected when using the watch(source, callback, options?) signature.`);
+    }
+  }
+  const warnInvalidSource = (s) => {
+    warn$1(`Invalid watch source: `, s, `A watch source can only be a getter/effect function, a ref, a reactive object, or an array of these types.`);
+  };
   const instance = getCurrentScope() === (currentInstance === null || currentInstance === void 0 ? void 0 : currentInstance.scope) ? currentInstance : null;
   let getter;
   let forceTrigger = false;
   let isMultiSource = false;
   if (isRef(source)) {
     getter = () => source.value;
-    forceTrigger = isShallow(source);
+    forceTrigger = isShallow$1(source);
   } else if (isReactive(source)) {
     getter = () => source;
     deep = true;
   } else if (isArray$1(source)) {
     isMultiSource = true;
-    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
+    forceTrigger = source.some((s) => isReactive(s) || isShallow$1(s));
     getter = () => source.map((s) => {
       if (isRef(s)) {
         return s.value;
@@ -1638,8 +2781,9 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
           2
           /* ErrorCodes.WATCH_GETTER */
         );
-      } else
-        ;
+      } else {
+        warnInvalidSource(s);
+      }
     });
   } else if (isFunction(source)) {
     if (cb) {
@@ -1662,6 +2806,7 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
     }
   } else {
     getter = NOOP;
+    warnInvalidSource(source);
   }
   if (cb && deep) {
     const baseGetter = getter;
@@ -1733,6 +2878,10 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
     scheduler = () => queueJob(job);
   }
   const effect = new ReactiveEffect(getter, scheduler);
+  {
+    effect.onTrack = onTrack;
+    effect.onTrigger = onTrigger;
+  }
   if (cb) {
     if (immediate) {
       job();
@@ -1806,7 +2955,7 @@ function traverse(value, seen2) {
     value.forEach((v) => {
       traverse(v, seen2);
     });
-  } else if (isPlainObject(value)) {
+  } else if (isPlainObject$1(value)) {
     for (const key in value) {
       traverse(value[key], seen2);
     }
@@ -1878,6 +3027,9 @@ function injectHook(type, hook, target = currentInstance, prepend = false) {
       hooks.push(wrappedHook);
     }
     return wrappedHook;
+  } else {
+    const apiName = toHandlerKey(ErrorTypeStrings[type].replace(/ hook$/, ""));
+    warn$1(`${apiName} is called when there is no active component instance to be associated with. Lifecycle injection APIs can only be used during execution of setup(). If you are using async setup(), make sure to register lifecycle hooks before the first await statement.`);
   }
 }
 const createHook = (lifecycle) => (hook, target = currentInstance) => (
@@ -1923,6 +3075,11 @@ const onRenderTracked = createHook(
 function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
+function validateDirectiveName(name) {
+  if (isBuiltInDirective(name)) {
+    warn$1("Do not use built-in directive ids as custom directive id: " + name);
+  }
+}
 function invokeDirectiveHook(vnode, prevVNode, instance, name) {
   const bindings = vnode.dirs;
   const oldBindings = prevVNode && prevVNode.dirs;
@@ -1959,10 +3116,10 @@ const publicPropertiesMap = (
     $: (i) => i,
     $el: (i) => i.vnode.el,
     $data: (i) => i.data,
-    $props: (i) => i.props,
-    $attrs: (i) => i.attrs,
-    $slots: (i) => i.slots,
-    $refs: (i) => i.refs,
+    $props: (i) => shallowReadonly(i.props),
+    $attrs: (i) => shallowReadonly(i.attrs),
+    $slots: (i) => shallowReadonly(i.slots),
+    $refs: (i) => shallowReadonly(i.refs),
     $parent: (i) => getPublicInstance(i.parent),
     $root: (i) => getPublicInstance(i.root),
     $emit: (i) => i.emit,
@@ -1972,10 +3129,14 @@ const publicPropertiesMap = (
     $watch: (i) => instanceWatch.bind(i)
   })
 );
+const isReservedPrefix = (key) => key === "_" || key === "$";
 const hasSetupBinding = (state, key) => state !== EMPTY_OBJ && !state.__isScriptSetup && hasOwn(state, key);
 const PublicInstanceProxyHandlers = {
   get({ _: instance }, key) {
     const { ctx, setupState, data, props, accessCache, type, appContext } = instance;
+    if (key === "__isVue") {
+      return true;
+    }
     let normalizedProps;
     if (key[0] !== "$") {
       const n = accessCache[key];
@@ -2015,6 +3176,7 @@ const PublicInstanceProxyHandlers = {
     if (publicGetter) {
       if (key === "$attrs") {
         track(instance, "get", key);
+        markAttrsAccessed();
       }
       return publicGetter(instance);
     } else if (
@@ -2026,30 +3188,48 @@ const PublicInstanceProxyHandlers = {
       accessCache[key] = 4;
       return ctx[key];
     } else if (
-      // global properties
+      // {} properties
       globalProperties = appContext.config.globalProperties, hasOwn(globalProperties, key)
     ) {
       {
         return globalProperties[key];
       }
-    } else
-      ;
+    } else if (currentRenderingInstance && (!isString(key) || // #1091 avoid internal isRef/isVNode checks on component instance leading
+    // to infinite warning loop
+    key.indexOf("__v") !== 0)) {
+      if (data !== EMPTY_OBJ && isReservedPrefix(key[0]) && hasOwn(data, key)) {
+        warn$1(`Property ${JSON.stringify(key)} must be accessed via $data because it starts with a reserved character ("$" or "_") and is not proxied on the render context.`);
+      } else if (instance === currentRenderingInstance) {
+        warn$1(`Property ${JSON.stringify(key)} was accessed during render but is not defined on instance.`);
+      }
+    }
   },
   set({ _: instance }, key, value) {
     const { data, setupState, ctx } = instance;
     if (hasSetupBinding(setupState, key)) {
       setupState[key] = value;
       return true;
+    } else if (setupState.__isScriptSetup && hasOwn(setupState, key)) {
+      warn$1(`Cannot mutate <script setup> binding "${key}" from Options API.`);
+      return false;
     } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
       data[key] = value;
       return true;
     } else if (hasOwn(instance.props, key)) {
+      warn$1(`Attempting to mutate prop "${key}". Props are readonly.`);
       return false;
     }
     if (key[0] === "$" && key.slice(1) in instance) {
+      warn$1(`Attempting to mutate public property "${key}". Properties starting with $ are reserved and readonly.`);
       return false;
     } else {
-      {
+      if (key in instance.appContext.config.globalProperties) {
+        Object.defineProperty(ctx, key, {
+          enumerable: true,
+          configurable: true,
+          value
+        });
+      } else {
         ctx[key] = value;
       }
     }
@@ -2068,6 +3248,71 @@ const PublicInstanceProxyHandlers = {
     return Reflect.defineProperty(target, key, descriptor);
   }
 };
+{
+  PublicInstanceProxyHandlers.ownKeys = (target) => {
+    warn$1(`Avoid app logic that relies on enumerating keys on a component instance. The keys will be empty in production mode to avoid performance overhead.`);
+    return Reflect.ownKeys(target);
+  };
+}
+function createDevRenderContext(instance) {
+  const target = {};
+  Object.defineProperty(target, `_`, {
+    configurable: true,
+    enumerable: false,
+    get: () => instance
+  });
+  Object.keys(publicPropertiesMap).forEach((key) => {
+    Object.defineProperty(target, key, {
+      configurable: true,
+      enumerable: false,
+      get: () => publicPropertiesMap[key](instance),
+      // intercepted by the proxy so no need for implementation,
+      // but needed to prevent set errors
+      set: NOOP
+    });
+  });
+  return target;
+}
+function exposePropsOnRenderContext(instance) {
+  const { ctx, propsOptions: [propsOptions] } = instance;
+  if (propsOptions) {
+    Object.keys(propsOptions).forEach((key) => {
+      Object.defineProperty(ctx, key, {
+        enumerable: true,
+        configurable: true,
+        get: () => instance.props[key],
+        set: NOOP
+      });
+    });
+  }
+}
+function exposeSetupStateOnRenderContext(instance) {
+  const { ctx, setupState } = instance;
+  Object.keys(toRaw(setupState)).forEach((key) => {
+    if (!setupState.__isScriptSetup) {
+      if (isReservedPrefix(key[0])) {
+        warn$1(`setup() return property ${JSON.stringify(key)} should not start with "$" or "_" which are reserved prefixes for Vue internals.`);
+        return;
+      }
+      Object.defineProperty(ctx, key, {
+        enumerable: true,
+        configurable: true,
+        get: () => setupState[key],
+        set: NOOP
+      });
+    }
+  });
+}
+function createDuplicateChecker() {
+  const cache = /* @__PURE__ */ Object.create(null);
+  return (type, key) => {
+    if (cache[key]) {
+      warn$1(`${type} property "${key}" is already defined in ${cache[key]}.`);
+    } else {
+      cache[key] = type;
+    }
+  };
+}
 let shouldCacheAccess = true;
 function applyOptions(instance) {
   const options = resolveMergedOptions(instance);
@@ -2115,7 +3360,15 @@ function applyOptions(instance) {
     directives,
     filters
   } = options;
-  const checkDuplicateProperties = null;
+  const checkDuplicateProperties = createDuplicateChecker();
+  {
+    const [propsOptions] = instance.propsOptions;
+    if (propsOptions) {
+      for (const key in propsOptions) {
+        checkDuplicateProperties("Props", key);
+      }
+    }
+  }
   if (injectOptions) {
     resolveInjections(injectOptions, ctx, checkDuplicateProperties, instance.appContext.config.unwrapInjectedRef);
   }
@@ -2124,17 +3377,46 @@ function applyOptions(instance) {
       const methodHandler = methods[key];
       if (isFunction(methodHandler)) {
         {
-          ctx[key] = methodHandler.bind(publicThis);
+          Object.defineProperty(ctx, key, {
+            value: methodHandler.bind(publicThis),
+            configurable: true,
+            enumerable: true,
+            writable: true
+          });
         }
+        {
+          checkDuplicateProperties("Methods", key);
+        }
+      } else {
+        warn$1(`Method "${key}" has type "${typeof methodHandler}" in the component definition. Did you reference the function correctly?`);
       }
     }
   }
   if (dataOptions) {
+    if (!isFunction(dataOptions)) {
+      warn$1(`The data option must be a function. Plain object usage is no longer supported.`);
+    }
     const data = dataOptions.call(publicThis, publicThis);
-    if (!isObject(data))
-      ;
-    else {
+    if (isPromise(data)) {
+      warn$1(`data() returned a Promise - note data() cannot be async; If you intend to perform data fetching before component renders, use async setup() + <Suspense>.`);
+    }
+    if (!isObject(data)) {
+      warn$1(`data() should return an object.`);
+    } else {
       instance.data = reactive(data);
+      {
+        for (const key in data) {
+          checkDuplicateProperties("Data", key);
+          if (!isReservedPrefix(key[0])) {
+            Object.defineProperty(ctx, key, {
+              configurable: true,
+              enumerable: true,
+              get: () => data[key],
+              set: NOOP
+            });
+          }
+        }
+      }
     }
   }
   shouldCacheAccess = true;
@@ -2142,7 +3424,12 @@ function applyOptions(instance) {
     for (const key in computedOptions) {
       const opt = computedOptions[key];
       const get2 = isFunction(opt) ? opt.bind(publicThis, publicThis) : isFunction(opt.get) ? opt.get.bind(publicThis, publicThis) : NOOP;
-      const set2 = !isFunction(opt) && isFunction(opt.set) ? opt.set.bind(publicThis) : NOOP;
+      if (get2 === NOOP) {
+        warn$1(`Computed property "${key}" has no getter.`);
+      }
+      const set2 = !isFunction(opt) && isFunction(opt.set) ? opt.set.bind(publicThis) : () => {
+        warn$1(`Write operation failed: computed property "${key}" is readonly.`);
+      };
       const c = computed({
         get: get2,
         set: set2
@@ -2153,6 +3440,9 @@ function applyOptions(instance) {
         get: () => c.value,
         set: (v) => c.value = v
       });
+      {
+        checkDuplicateProperties("Computed", key);
+      }
     }
   }
   if (watchOptions) {
@@ -2247,10 +3537,16 @@ function resolveInjections(injectOptions, ctx, checkDuplicateProperties = NOOP, 
           set: (v) => injected.value = v
         });
       } else {
+        {
+          warn$1(`injected property "${key}" is a ref and will be auto-unwrapped and no longer needs \`.value\` in the next minor release. To opt-in to the new behavior now, set \`app.config.unwrapInjectedRef = true\` (this config is temporary and will not be needed in the future.)`);
+        }
         ctx[key] = injected;
       }
     } else {
       ctx[key] = injected;
+    }
+    {
+      checkDuplicateProperties("Inject", key);
     }
   }
 }
@@ -2263,6 +3559,8 @@ function createWatcher(raw, ctx, publicThis, key) {
     const handler = ctx[raw];
     if (isFunction(handler)) {
       watch(getter, handler);
+    } else {
+      warn$1(`Invalid watch handler specified by key "${raw}"`, handler);
     }
   } else if (isFunction(raw)) {
     watch(getter, raw.bind(publicThis));
@@ -2273,10 +3571,13 @@ function createWatcher(raw, ctx, publicThis, key) {
       const handler = isFunction(raw.handler) ? raw.handler.bind(publicThis) : ctx[raw.handler];
       if (isFunction(handler)) {
         watch(getter, handler, raw);
+      } else {
+        warn$1(`Invalid watch handler specified by key "${raw.handler}"`, handler);
       }
     }
-  } else
-    ;
+  } else {
+    warn$1(`Invalid watch option: "${key}"`, raw);
+  }
 }
 function resolveMergedOptions(instance) {
   const base = instance.type;
@@ -2311,9 +3612,9 @@ function mergeOptions$1(to, from, strats, asMixin = false) {
     mixins.forEach((m) => mergeOptions$1(to, m, strats, true));
   }
   for (const key in from) {
-    if (asMixin && key === "expose")
-      ;
-    else {
+    if (asMixin && key === "expose") {
+      warn$1(`"expose" option is ignored when declared in mixins or extends. It should only be declared in the base component itself.`);
+    } else {
       const strat = internalOptionMergeStrats[key] || strats && strats[key];
       to[key] = strat ? strat(to[key], from[key]) : from[key];
     }
@@ -2403,6 +3704,9 @@ function initProps(instance, rawProps, isStateful, isSSR = false) {
       props[key] = void 0;
     }
   }
+  {
+    validateProps(rawProps || {}, props, instance);
+  }
   if (isStateful) {
     instance.props = isSSR ? props : shallowReactive(props);
   } else {
@@ -2414,6 +3718,13 @@ function initProps(instance, rawProps, isStateful, isSSR = false) {
   }
   instance.attrs = attrs;
 }
+function isInHmrContext(instance) {
+  while (instance) {
+    if (instance.type.__hmrId)
+      return true;
+    instance = instance.parent;
+  }
+}
 function updateProps(instance, rawProps, rawPrevProps, optimized) {
   const { props, attrs, vnode: { patchFlag } } = instance;
   const rawCurrentProps = toRaw(props);
@@ -2423,7 +3734,7 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
     // always force full diff in dev
     // - #1942 if hmr is enabled with sfc component
     // - vite#872 non-sfc component used by sfc component
-    (optimized || patchFlag > 0) && !(patchFlag & 16)
+    !isInHmrContext(instance) && (optimized || patchFlag > 0) && !(patchFlag & 16)
   ) {
     if (patchFlag & 8) {
       const propsToUpdate = instance.vnode.dynamicProps;
@@ -2499,6 +3810,9 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
   }
   if (hasAttrsChanged) {
     trigger(instance, "set", "$attrs");
+  }
+  {
+    validateProps(rawProps || {}, props, instance);
   }
 }
 function setFullProps(instance, rawProps, props, attrs) {
@@ -2607,12 +3921,18 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
   }
   if (isArray$1(raw)) {
     for (let i = 0; i < raw.length; i++) {
+      if (!isString(raw[i])) {
+        warn$1(`props must be strings when using array syntax.`, raw[i]);
+      }
       const normalizedKey = camelize(raw[i]);
       if (validatePropName(normalizedKey)) {
         normalized[normalizedKey] = EMPTY_OBJ;
       }
     }
   } else if (raw) {
+    if (!isObject(raw)) {
+      warn$1(`invalid props options`, raw);
+    }
     for (const key in raw) {
       const normalizedKey = camelize(key);
       if (validatePropName(normalizedKey)) {
@@ -2645,6 +3965,8 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
 function validatePropName(key) {
   if (key[0] !== "$") {
     return true;
+  } else {
+    warn$1(`Invalid prop name: "${key}" is a reserved property.`);
   }
   return false;
 }
@@ -2663,6 +3985,98 @@ function getTypeIndex(type, expectedTypes) {
   }
   return -1;
 }
+function validateProps(rawProps, props, instance) {
+  const resolvedValues = toRaw(props);
+  const options = instance.propsOptions[0];
+  for (const key in options) {
+    let opt = options[key];
+    if (opt == null)
+      continue;
+    validateProp(key, resolvedValues[key], opt, !hasOwn(rawProps, key) && !hasOwn(rawProps, hyphenate(key)));
+  }
+}
+function validateProp(name, value, prop, isAbsent) {
+  const { type, required, validator } = prop;
+  if (required && isAbsent) {
+    warn$1('Missing required prop: "' + name + '"');
+    return;
+  }
+  if (value == null && !prop.required) {
+    return;
+  }
+  if (type != null && type !== true) {
+    let isValid = false;
+    const types = isArray$1(type) ? type : [type];
+    const expectedTypes = [];
+    for (let i = 0; i < types.length && !isValid; i++) {
+      const { valid, expectedType } = assertType(value, types[i]);
+      expectedTypes.push(expectedType || "");
+      isValid = valid;
+    }
+    if (!isValid) {
+      warn$1(getInvalidTypeMessage(name, value, expectedTypes));
+      return;
+    }
+  }
+  if (validator && !validator(value)) {
+    warn$1('Invalid prop: custom validator check failed for prop "' + name + '".');
+  }
+}
+const isSimpleType = /* @__PURE__ */ makeMap("String,Number,Boolean,Function,Symbol,BigInt");
+function assertType(value, type) {
+  let valid;
+  const expectedType = getType(type);
+  if (isSimpleType(expectedType)) {
+    const t = typeof value;
+    valid = t === expectedType.toLowerCase();
+    if (!valid && t === "object") {
+      valid = value instanceof type;
+    }
+  } else if (expectedType === "Object") {
+    valid = isObject(value);
+  } else if (expectedType === "Array") {
+    valid = isArray$1(value);
+  } else if (expectedType === "null") {
+    valid = value === null;
+  } else {
+    valid = value instanceof type;
+  }
+  return {
+    valid,
+    expectedType
+  };
+}
+function getInvalidTypeMessage(name, value, expectedTypes) {
+  let message = `Invalid prop: type check failed for prop "${name}". Expected ${expectedTypes.map(capitalize).join(" | ")}`;
+  const expectedType = expectedTypes[0];
+  const receivedType = toRawType(value);
+  const expectedValue = styleValue(value, expectedType);
+  const receivedValue = styleValue(value, receivedType);
+  if (expectedTypes.length === 1 && isExplicable(expectedType) && !isBoolean(expectedType, receivedType)) {
+    message += ` with value ${expectedValue}`;
+  }
+  message += `, got ${receivedType} `;
+  if (isExplicable(receivedType)) {
+    message += `with value ${receivedValue}.`;
+  }
+  return message;
+}
+function styleValue(value, type) {
+  if (type === "String") {
+    return `"${value}"`;
+  } else if (type === "Number") {
+    return `${Number(value)}`;
+  } else {
+    return `${value}`;
+  }
+}
+function isExplicable(type) {
+  const explicitTypes = ["string", "number", "boolean"];
+  return explicitTypes.some((elem) => type.toLowerCase() === elem);
+}
+function isBoolean(...args) {
+  return args.some((elem) => elem.toLowerCase() === "boolean");
+}
 const isInternalKey = (key) => key[0] === "_" || key === "$stable";
 const normalizeSlotValue = (value) => isArray$1(value) ? value.map(normalizeVNode) : [normalizeVNode(value)];
 const normalizeSlot$1 = (key, rawSlot, ctx) => {
@@ -2670,8 +4084,9 @@ const normalizeSlot$1 = (key, rawSlot, ctx) => {
     return rawSlot;
   }
   const normalized = withCtx((...args) => {
-    if (false)
-      ;
+    if (currentInstance) {
+      warn$1(`Slot "${key}" invoked outside of the render function: this will not track dependencies used in the slot. Invoke the slot function inside the render function instead.`);
+    }
     return normalizeSlotValue(rawSlot(...args));
   }, ctx);
   normalized._c = false;
@@ -2686,12 +4101,18 @@ const normalizeObjectSlots = (rawSlots, slots, instance) => {
     if (isFunction(value)) {
       slots[key] = normalizeSlot$1(key, value, ctx);
     } else if (value != null) {
+      {
+        warn$1(`Non-function value encountered for slot "${key}". Prefer function slots for better performance.`);
+      }
       const normalized = normalizeSlotValue(value);
       slots[key] = () => normalized;
     }
   }
 };
 const normalizeVNodeSlots = (instance, children) => {
+  if (!isKeepAlive(instance.vnode) && true) {
+    warn$1(`Non-function value encountered for default slot. Prefer function slots for better performance.`);
+  }
   const normalized = normalizeSlotValue(children);
   instance.slots.default = () => normalized;
 };
@@ -2719,7 +4140,9 @@ const updateSlots = (instance, children, optimized) => {
   if (vnode.shapeFlag & 32) {
     const type = children._;
     if (type) {
-      if (optimized && type === 1) {
+      if (isHmrUpdating) {
+        extend(slots, children);
+      } else if (optimized && type === 1) {
         needDeletionCheck = false;
       } else {
         extend(slots, children);
@@ -2772,6 +4195,7 @@ function createAppAPI(render, hydrate) {
       rootComponent = Object.assign({}, rootComponent);
     }
     if (rootProps != null && !isObject(rootProps)) {
+      warn$1(`root props passed to app.mount() must be an object.`);
       rootProps = null;
     }
     const context = createAppContext();
@@ -2789,46 +4213,73 @@ function createAppAPI(render, hydrate) {
         return context.config;
       },
       set config(v) {
+        {
+          warn$1(`app.config cannot be replaced. Modify individual options instead.`);
+        }
       },
       use(plugin, ...options) {
-        if (installedPlugins.has(plugin))
-          ;
-        else if (plugin && isFunction(plugin.install)) {
+        if (installedPlugins.has(plugin)) {
+          warn$1(`Plugin has already been applied to target app.`);
+        } else if (plugin && isFunction(plugin.install)) {
           installedPlugins.add(plugin);
           plugin.install(app2, ...options);
         } else if (isFunction(plugin)) {
           installedPlugins.add(plugin);
           plugin(app2, ...options);
-        } else
-          ;
+        } else {
+          warn$1(`A plugin must either be a function or an object with an "install" function.`);
+        }
         return app2;
       },
       mixin(mixin) {
         {
           if (!context.mixins.includes(mixin)) {
             context.mixins.push(mixin);
+          } else {
+            warn$1("Mixin has already been applied to target app" + (mixin.name ? `: ${mixin.name}` : ""));
           }
         }
         return app2;
       },
       component(name, component) {
+        {
+          validateComponentName(name, context.config);
+        }
         if (!component) {
           return context.components[name];
+        }
+        if (context.components[name]) {
+          warn$1(`Component "${name}" has already been registered in target app.`);
         }
         context.components[name] = component;
         return app2;
       },
       directive(name, directive) {
+        {
+          validateDirectiveName(name);
+        }
         if (!directive) {
           return context.directives[name];
+        }
+        if (context.directives[name]) {
+          warn$1(`Directive "${name}" has already been registered in target app.`);
         }
         context.directives[name] = directive;
         return app2;
       },
       mount(rootContainer, isHydrate, isSVG) {
         if (!isMounted) {
+          if (rootContainer.__vue_app__) {
+            warn$1(`There is already an app instance mounted on the host container.
+ If you want to mount another app on the same host container, you need to unmount the previous app by calling \`app.unmount()\` first.`);
+          }
           const vnode = createVNode(rootComponent, rootProps);
           vnode.appContext = context;
+          {
+            context.reload = () => {
+              render(cloneVNode(vnode), rootContainer, isSVG);
+            };
+          }
           if (isHydrate && hydrate) {
             hydrate(vnode, rootContainer);
           } else {
@@ -2837,16 +4288,32 @@ function createAppAPI(render, hydrate) {
           isMounted = true;
           app2._container = rootContainer;
           rootContainer.__vue_app__ = app2;
+          {
+            app2._instance = vnode.component;
+            devtoolsInitApp(app2, version);
+          }
           return getExposeProxy(vnode.component) || vnode.component.proxy;
+        } else {
+          warn$1(`App has already been mounted.
+If you want to remount the same app, move your app creation logic into a factory function and create fresh app instances for each mount - e.g. \`const createMyApp = () => createApp(App)\``);
         }
       },
       unmount() {
         if (isMounted) {
           render(null, app2._container);
+          {
+            app2._instance = null;
+            devtoolsUnmountApp(app2);
+          }
           delete app2._container.__vue_app__;
+        } else {
+          warn$1(`Cannot unmount an app that is not mounted.`);
         }
       },
       provide(key, value) {
+        if (key in context.provides) {
+          warn$1(`App already provides property with key "${String(key)}". It will be overwritten with the new value.`);
+        }
         context.provides[key] = value;
         return app2;
       }
@@ -2865,6 +4332,10 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
   const refValue = vnode.shapeFlag & 4 ? getExposeProxy(vnode.component) || vnode.component.proxy : vnode.el;
   const value = isUnmount ? null : refValue;
   const { i: owner, r: ref2 } = rawRef;
+  if (!owner) {
+    warn$1(`Missing ref owner context. ref cannot be used on hoisted vnodes. A vnode with ref must be created inside the render function.`);
+    return;
+  }
   const oldRef = oldRawRef && oldRawRef.r;
   const refs = owner.refs === EMPTY_OBJ ? owner.refs = {} : owner.refs;
   const setupState = owner.setupState;
@@ -2914,8 +4385,9 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
           ref2.value = value;
           if (rawRef.k)
             refs[rawRef.k] = value;
-        } else
-          ;
+        } else {
+          warn$1("Invalid template ref type:", ref2, `(${typeof ref2})`);
+        }
       };
       if (value) {
         doSet.id = -1;
@@ -2923,7 +4395,53 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
       } else {
         doSet();
       }
+    } else {
+      warn$1("Invalid template ref type:", ref2, `(${typeof ref2})`);
     }
+  }
+}
+let supported$1;
+let perf$1;
+function startMeasure(instance, type) {
+  if (instance.appContext.config.performance && isSupported()) {
+    perf$1.mark(`vue-${type}-${instance.uid}`);
+  }
+  {
+    devtoolsPerfStart(instance, type, isSupported() ? perf$1.now() : Date.now());
+  }
+}
+function endMeasure(instance, type) {
+  if (instance.appContext.config.performance && isSupported()) {
+    const startTag = `vue-${type}-${instance.uid}`;
+    const endTag = startTag + `:end`;
+    perf$1.mark(endTag);
+    perf$1.measure(`<${formatComponentName(instance, instance.type)}> ${type}`, startTag, endTag);
+    perf$1.clearMarks(startTag);
+    perf$1.clearMarks(endTag);
+  }
+  {
+    devtoolsPerfEnd(instance, type, isSupported() ? perf$1.now() : Date.now());
+  }
+}
+function isSupported() {
+  if (supported$1 !== void 0) {
+    return supported$1;
+  }
+  if (typeof window !== "undefined" && window.performance) {
+    supported$1 = true;
+    perf$1 = window.performance;
+  } else {
+    supported$1 = false;
+  }
+  return supported$1;
+}
+function initFeatureFlags() {
+  const needWarn = [];
+  if (needWarn.length) {
+    const multi = needWarn.length > 1;
+    console.warn(`Feature flag${multi ? `s` : ``} ${needWarn.join(", ")} ${multi ? `are` : `is`} not explicitly defined. You are running the esm-bundler build of Vue, which expects these compile-time feature flags to be globally injected via the bundler config in order to get better tree-shaking in the production bundle.
+
+For more details, see https://link.vuejs.org/feature-flags.`);
   }
 }
 const queuePostRenderEffect = queueEffectWithSuspense;
@@ -2931,10 +4449,16 @@ function createRenderer(options) {
   return baseCreateRenderer(options);
 }
 function baseCreateRenderer(options, createHydrationFns) {
+  {
+    initFeatureFlags();
+  }
   const target = getGlobalThis();
   target.__VUE__ = true;
+  {
+    setDevtoolsHook(target.__VUE_DEVTOOLS_GLOBAL_HOOK__, target);
+  }
   const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, parentNode: hostParentNode, nextSibling: hostNextSibling, setScopeId: hostSetScopeId = NOOP, insertStaticContent: hostInsertStaticContent } = options;
-  const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, isSVG = false, slotScopeIds = null, optimized = !!n2.dynamicChildren) => {
+  const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, isSVG = false, slotScopeIds = null, optimized = isHmrUpdating ? false : !!n2.dynamicChildren) => {
     if (n1 === n2) {
       return;
     }
@@ -2958,6 +4482,8 @@ function baseCreateRenderer(options, createHydrationFns) {
       case Static:
         if (n1 == null) {
           mountStaticNode(n2, container, anchor, isSVG);
+        } else {
+          patchStaticNode(n1, n2, container, isSVG);
         }
         break;
       case Fragment:
@@ -2972,8 +4498,9 @@ function baseCreateRenderer(options, createHydrationFns) {
           type.process(n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, internals);
         } else if (shapeFlag & 128) {
           type.process(n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, internals);
-        } else
-          ;
+        } else {
+          warn$1("Invalid VNode type:", type, `(${typeof type})`);
+        }
     }
     if (ref2 != null && parentComponent) {
       setRef(ref2, n1 && n1.ref, parentSuspense, n2 || n1, !n2);
@@ -2998,6 +4525,16 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   const mountStaticNode = (n2, container, anchor, isSVG) => {
     [n2.el, n2.anchor] = hostInsertStaticContent(n2.children, container, anchor, isSVG, n2.el, n2.anchor);
+  };
+  const patchStaticNode = (n1, n2, container, isSVG) => {
+    if (n2.children !== n1.children) {
+      const anchor = hostNextSibling(n1.anchor);
+      removeStaticNode(n1);
+      [n2.el, n2.anchor] = hostInsertStaticContent(n2.children, container, anchor, isSVG);
+    } else {
+      n2.el = n1.el;
+      n2.anchor = n1.anchor;
+    }
   };
   const moveStaticNode = ({ el, anchor }, container, nextSibling) => {
     let next;
@@ -3052,6 +4589,16 @@ function baseCreateRenderer(options, createHydrationFns) {
         invokeVNodeHook(vnodeHook, parentComponent, vnode);
       }
     }
+    {
+      Object.defineProperty(el, "__vnode", {
+        value: vnode,
+        enumerable: false
+      });
+      Object.defineProperty(el, "__vueParentComponent", {
+        value: parentComponent,
+        enumerable: false
+      });
+    }
     if (dirs) {
       invokeDirectiveHook(vnode, null, parentComponent, "beforeMount");
     }
@@ -3079,6 +4626,9 @@ function baseCreateRenderer(options, createHydrationFns) {
     }
     if (parentComponent) {
       let subTree = parentComponent.subTree;
+      if (subTree.patchFlag > 0 && subTree.patchFlag & 2048) {
+        subTree = filterSingleRoot(subTree.children) || subTree;
+      }
       if (vnode === subTree) {
         const parentVNode = parentComponent.vnode;
         setScopeId(el, parentVNode, parentVNode.scopeId, parentVNode.slotScopeIds, parentComponent.parent);
@@ -3106,9 +4656,17 @@ function baseCreateRenderer(options, createHydrationFns) {
       invokeDirectiveHook(n2, n1, parentComponent, "beforeUpdate");
     }
     parentComponent && toggleRecurse(parentComponent, true);
+    if (isHmrUpdating) {
+      patchFlag = 0;
+      optimized = false;
+      dynamicChildren = null;
+    }
     const areChildrenSVG = isSVG && n2.type !== "foreignObject";
     if (dynamicChildren) {
       patchBlockChildren(n1.dynamicChildren, dynamicChildren, el, parentComponent, parentSuspense, areChildrenSVG, slotScopeIds);
+      if (parentComponent && parentComponent.type.__hmrId) {
+        traverseStaticChildren(n1, n2);
+      }
     } else if (!optimized) {
       patchChildren(n1, n2, el, null, parentComponent, parentSuspense, areChildrenSVG, slotScopeIds, false);
     }
@@ -3199,6 +4757,14 @@ function baseCreateRenderer(options, createHydrationFns) {
     const fragmentStartAnchor = n2.el = n1 ? n1.el : hostCreateText("");
     const fragmentEndAnchor = n2.anchor = n1 ? n1.anchor : hostCreateText("");
     let { patchFlag, dynamicChildren, slotScopeIds: fragmentSlotScopeIds } = n2;
+    if (
+      // #5523 dev root fragment may inherit directives
+      isHmrUpdating || patchFlag & 2048
+    ) {
+      patchFlag = 0;
+      optimized = false;
+      dynamicChildren = null;
+    }
     if (fragmentSlotScopeIds) {
       slotScopeIds = slotScopeIds ? slotScopeIds.concat(fragmentSlotScopeIds) : fragmentSlotScopeIds;
     }
@@ -3211,7 +4777,9 @@ function baseCreateRenderer(options, createHydrationFns) {
       // of renderSlot() with no valid children
       n1.dynamicChildren) {
         patchBlockChildren(n1.dynamicChildren, dynamicChildren, container, parentComponent, parentSuspense, isSVG, slotScopeIds);
-        if (
+        if (parentComponent && parentComponent.type.__hmrId) {
+          traverseStaticChildren(n1, n2);
+        } else if (
           // #2080 if the stable fragment has a key, it's a <template v-for> that may
           //  get moved around. Make sure all root level vnodes inherit el.
           // #2134 or if it's a component root, it may also get moved around
@@ -3244,11 +4812,24 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   const mountComponent = (initialVNode, container, anchor, parentComponent, parentSuspense, isSVG, optimized) => {
     const instance = initialVNode.component = createComponentInstance(initialVNode, parentComponent, parentSuspense);
+    if (instance.type.__hmrId) {
+      registerHMR(instance);
+    }
+    {
+      pushWarningContext(initialVNode);
+      startMeasure(instance, `mount`);
+    }
     if (isKeepAlive(initialVNode)) {
       instance.ctx.renderer = internals;
     }
     {
+      {
+        startMeasure(instance, `init`);
+      }
       setupComponent(instance);
+      {
+        endMeasure(instance, `init`);
+      }
     }
     if (instance.asyncDep) {
       parentSuspense && parentSuspense.registerDep(instance, setupRenderEffect);
@@ -3259,12 +4840,22 @@ function baseCreateRenderer(options, createHydrationFns) {
       return;
     }
     setupRenderEffect(instance, initialVNode, container, anchor, parentSuspense, isSVG, optimized);
+    {
+      popWarningContext();
+      endMeasure(instance, `mount`);
+    }
   };
   const updateComponent = (n1, n2, optimized) => {
     const instance = n2.component = n1.component;
     if (shouldUpdateComponent(n1, n2, optimized)) {
       if (instance.asyncDep && !instance.asyncResolved) {
+        {
+          pushWarningContext(n2);
+        }
         updateComponentPreRender(instance, n2, optimized);
+        {
+          popWarningContext();
+        }
         return;
       } else {
         instance.next = n2;
@@ -3293,8 +4884,20 @@ function baseCreateRenderer(options, createHydrationFns) {
         toggleRecurse(instance, true);
         if (el && hydrateNode) {
           const hydrateSubTree = () => {
+            {
+              startMeasure(instance, `render`);
+            }
             instance.subTree = renderComponentRoot(instance);
+            {
+              endMeasure(instance, `render`);
+            }
+            {
+              startMeasure(instance, `hydrate`);
+            }
             hydrateNode(el, instance.subTree, instance, parentSuspense, null);
+            {
+              endMeasure(instance, `hydrate`);
+            }
           };
           if (isAsyncWrapperVNode) {
             initialVNode.type.__asyncLoader().then(
@@ -3308,8 +4911,20 @@ function baseCreateRenderer(options, createHydrationFns) {
             hydrateSubTree();
           }
         } else {
+          {
+            startMeasure(instance, `render`);
+          }
           const subTree = instance.subTree = renderComponentRoot(instance);
+          {
+            endMeasure(instance, `render`);
+          }
+          {
+            startMeasure(instance, `patch`);
+          }
           patch(null, subTree, container, anchor, instance, parentSuspense, isSVG);
+          {
+            endMeasure(instance, `patch`);
+          }
           initialVNode.el = subTree.el;
         }
         if (m) {
@@ -3323,11 +4938,17 @@ function baseCreateRenderer(options, createHydrationFns) {
           instance.a && queuePostRenderEffect(instance.a, parentSuspense);
         }
         instance.isMounted = true;
+        {
+          devtoolsComponentAdded(instance);
+        }
         initialVNode = container = anchor = null;
       } else {
         let { next, bu, u, parent, vnode } = instance;
         let originNext = next;
         let vnodeHook;
+        {
+          pushWarningContext(next || instance.vnode);
+        }
         toggleRecurse(instance, false);
         if (next) {
           next.el = vnode.el;
@@ -3342,9 +4963,18 @@ function baseCreateRenderer(options, createHydrationFns) {
           invokeVNodeHook(vnodeHook, parent, next, vnode);
         }
         toggleRecurse(instance, true);
+        {
+          startMeasure(instance, `render`);
+        }
         const nextTree = renderComponentRoot(instance);
+        {
+          endMeasure(instance, `render`);
+        }
         const prevTree = instance.subTree;
         instance.subTree = nextTree;
+        {
+          startMeasure(instance, `patch`);
+        }
         patch(
           prevTree,
           nextTree,
@@ -3356,6 +4986,9 @@ function baseCreateRenderer(options, createHydrationFns) {
           parentSuspense,
           isSVG
         );
+        {
+          endMeasure(instance, `patch`);
+        }
         next.el = nextTree.el;
         if (originNext === null) {
           updateHOCHostEl(instance, nextTree.el);
@@ -3365,6 +4998,12 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
         if (vnodeHook = next.props && next.props.onVnodeUpdated) {
           queuePostRenderEffect(() => invokeVNodeHook(vnodeHook, parent, next, vnode), parentSuspense);
+        }
+        {
+          devtoolsComponentUpdated(instance);
+        }
+        {
+          popWarningContext();
         }
       }
     };
@@ -3377,6 +5016,11 @@ function baseCreateRenderer(options, createHydrationFns) {
     const update = instance.update = () => effect.run();
     update.id = instance.uid;
     toggleRecurse(instance, true);
+    {
+      effect.onTrack = instance.rtc ? (e) => invokeArrayFns(instance.rtc, e) : void 0;
+      effect.onTrigger = instance.rtg ? (e) => invokeArrayFns(instance.rtg, e) : void 0;
+      update.ownerInstance = instance;
+    }
     update();
   };
   const updateComponentPreRender = (instance, nextVNode, optimized) => {
@@ -3492,6 +5136,9 @@ function baseCreateRenderer(options, createHydrationFns) {
       for (i = s2; i <= e2; i++) {
         const nextChild = c2[i] = optimized ? cloneIfMounted(c2[i]) : normalizeVNode(c2[i]);
         if (nextChild.key != null) {
+          if (keyToNewIndexMap.has(nextChild.key)) {
+            warn$1(`Duplicate keys found during update:`, JSON.stringify(nextChild.key), `Make sure keys are unique.`);
+          }
           keyToNewIndexMap.set(nextChild.key, i);
         }
       }
@@ -3655,7 +5302,15 @@ function baseCreateRenderer(options, createHydrationFns) {
   const remove2 = (vnode) => {
     const { type, el, anchor, transition } = vnode;
     if (type === Fragment) {
-      {
+      if (vnode.patchFlag > 0 && vnode.patchFlag & 2048 && transition && !transition.persisted) {
+        vnode.children.forEach((child) => {
+          if (child.type === Comment) {
+            hostRemove(child.el);
+          } else {
+            remove2(child);
+          }
+        });
+      } else {
         removeFragment(el, anchor);
       }
       return;
@@ -3692,6 +5347,9 @@ function baseCreateRenderer(options, createHydrationFns) {
     hostRemove(end);
   };
   const unmountComponent = (instance, parentSuspense, doRemove) => {
+    if (instance.type.__hmrId) {
+      unregisterHMR(instance);
+    }
     const { bum, scope, update, subTree, um } = instance;
     if (bum) {
       invokeArrayFns(bum);
@@ -3712,6 +5370,9 @@ function baseCreateRenderer(options, createHydrationFns) {
       if (parentSuspense.deps === 0) {
         parentSuspense.resolve();
       }
+    }
+    {
+      devtoolsComponentRemoved(instance);
     }
   };
   const unmountChildren = (children, parentComponent, parentSuspense, doRemove = false, optimized = false, start = 0) => {
@@ -3784,6 +5445,9 @@ function traverseStaticChildren(n1, n2, shallow = false) {
       if (c2.type === Text) {
         c2.el = c1.el;
       }
+      if (c2.type === Comment && !c2.el) {
+        c2.el = c1.el;
+      }
     }
   }
 }
@@ -3828,10 +5492,10 @@ function getSequence(arr) {
   return result;
 }
 const isTeleport = (type) => type.__isTeleport;
-const Fragment = Symbol(void 0);
-const Text = Symbol(void 0);
-const Comment = Symbol(void 0);
-const Static = Symbol(void 0);
+const Fragment = Symbol("Fragment");
+const Text = Symbol("Text");
+const Comment = Symbol("Comment");
+const Static = Symbol("Static");
 const blockStack = [];
 let currentBlock = null;
 function openBlock(disableTracking = false) {
@@ -3865,12 +5529,31 @@ function createElementBlock(type, props, children, patchFlag, dynamicProps, shap
     /* isBlock */
   ));
 }
+function createBlock(type, props, children, patchFlag, dynamicProps) {
+  return setupBlock(createVNode(
+    type,
+    props,
+    children,
+    patchFlag,
+    dynamicProps,
+    true
+    /* isBlock: prevent a block from tracking itself */
+  ));
+}
 function isVNode(value) {
   return value ? value.__v_isVNode === true : false;
 }
 function isSameVNodeType(n1, n2) {
+  if (n2.shapeFlag & 6 && hmrDirtyComponents.has(n2.type)) {
+    n1.shapeFlag &= ~256;
+    n2.shapeFlag &= ~512;
+    return false;
+  }
   return n1.type === n2.type && n1.key === n2.key;
 }
+const createVNodeWithArgsTransform = (...args) => {
+  return _createVNode(...args);
+};
 const InternalObjectKey = `__vInternal`;
 const normalizeKey = ({ key }) => key != null ? key : null;
 const normalizeRef = ({ ref: ref2, ref_key, ref_for }) => {
@@ -3913,6 +5596,9 @@ function createBaseVNode(type, props = null, children = null, patchFlag = 0, dyn
   } else if (children) {
     vnode.shapeFlag |= isString(children) ? 8 : 16;
   }
+  if (vnode.key !== vnode.key) {
+    warn$1(`VNode created with invalid key (NaN). VNode type:`, vnode.type);
+  }
   if (isBlockTreeEnabled > 0 && // avoid a block node from tracking itself
   !isBlockNode && // has current parent block
   currentBlock && // presence of a patch flag indicates this node needs patching on updates.
@@ -3926,9 +5612,12 @@ function createBaseVNode(type, props = null, children = null, patchFlag = 0, dyn
   }
   return vnode;
 }
-const createVNode = _createVNode;
+const createVNode = createVNodeWithArgsTransform;
 function _createVNode(type, props = null, children = null, patchFlag = 0, dynamicProps = null, isBlockNode = false) {
   if (!type || type === NULL_DYNAMIC_COMPONENT) {
+    if (!type) {
+      warn$1(`Invalid vnode type when creating vnode: ${type}.`);
+    }
     type = Comment;
   }
   if (isVNode(type)) {
@@ -3968,6 +5657,11 @@ function _createVNode(type, props = null, children = null, patchFlag = 0, dynami
     }
   }
   const shapeFlag = isString(type) ? 1 : isSuspense(type) ? 128 : isTeleport(type) ? 64 : isObject(type) ? 4 : isFunction(type) ? 2 : 0;
+  if (shapeFlag & 4 && isProxy(type)) {
+    type = toRaw(type);
+    warn$1(`Vue received a Component which was made a reactive object. This can lead to unnecessary performance overhead, and should be avoided by marking the component with \`markRaw\` or using \`shallowRef\` instead of \`ref\`.`, `
+Component that was made reactive: `, type);
+  }
   return createBaseVNode(type, props, children, patchFlag, dynamicProps, shapeFlag, isBlockNode, true);
 }
 function guardReactiveProps(props) {
@@ -3992,7 +5686,7 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
     ) : ref2,
     scopeId: vnode.scopeId,
     slotScopeIds: vnode.slotScopeIds,
-    children,
+    children: patchFlag === -1 && isArray$1(children) ? children.map(deepCloneVNode) : children,
     target: vnode.target,
     targetAnchor: vnode.targetAnchor,
     staticCount: vnode.staticCount,
@@ -4022,8 +5716,18 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
   };
   return cloned;
 }
+function deepCloneVNode(vnode) {
+  const cloned = cloneVNode(vnode);
+  if (isArray$1(vnode.children)) {
+    cloned.children = vnode.children.map(deepCloneVNode);
+  }
+  return cloned;
+}
 function createTextVNode(text = " ", flag = 0) {
   return createVNode(Text, null, text, flag);
+}
+function createCommentVNode(text = "", asBlock = false) {
+  return asBlock ? (openBlock(), createBlock(Comment, null, text)) : createVNode(Comment, null, text);
 }
 function normalizeVNode(child) {
   if (child == null || typeof child === "boolean") {
@@ -4195,7 +5899,7 @@ function createComponentInstance(vnode, parent, suspense) {
     sp: null
   };
   {
-    instance.ctx = { _: instance };
+    instance.ctx = createDevRenderContext(instance);
   }
   instance.root = parent ? parent.root : instance;
   instance.emit = emit.bind(null, instance);
@@ -4205,6 +5909,7 @@ function createComponentInstance(vnode, parent, suspense) {
   return instance;
 }
 let currentInstance = null;
+const getCurrentInstance = () => currentInstance || currentRenderingInstance;
 const setCurrentInstance = (instance) => {
   currentInstance = instance;
   instance.scope.on();
@@ -4213,6 +5918,13 @@ const unsetCurrentInstance = () => {
   currentInstance && currentInstance.scope.off();
   currentInstance = null;
 };
+const isBuiltInTag = /* @__PURE__ */ makeMap("slot,component");
+function validateComponentName(name, config) {
+  const appIsNativeTag = config.isNativeTag || NO;
+  if (isBuiltInTag(name) || appIsNativeTag(name)) {
+    warn$1("Do not use built-in or reserved HTML elements as component id: " + name);
+  }
+}
 function isStatefulComponent(instance) {
   return instance.vnode.shapeFlag & 4;
 }
@@ -4228,15 +5940,39 @@ function setupComponent(instance, isSSR = false) {
   return setupResult;
 }
 function setupStatefulComponent(instance, isSSR) {
+  var _a2;
   const Component = instance.type;
+  {
+    if (Component.name) {
+      validateComponentName(Component.name, instance.appContext.config);
+    }
+    if (Component.components) {
+      const names = Object.keys(Component.components);
+      for (let i = 0; i < names.length; i++) {
+        validateComponentName(names[i], instance.appContext.config);
+      }
+    }
+    if (Component.directives) {
+      const names = Object.keys(Component.directives);
+      for (let i = 0; i < names.length; i++) {
+        validateDirectiveName(names[i]);
+      }
+    }
+    if (Component.compilerOptions && isRuntimeOnly()) {
+      warn$1(`"compilerOptions" is only supported when using a build of Vue that includes the runtime compiler. Since you are using a runtime-only build, the options should be passed via your build tool config instead.`);
+    }
+  }
   instance.accessCache = /* @__PURE__ */ Object.create(null);
   instance.proxy = markRaw(new Proxy(instance.ctx, PublicInstanceProxyHandlers));
+  {
+    exposePropsOnRenderContext(instance);
+  }
   const { setup } = Component;
   if (setup) {
     const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
     setCurrentInstance(instance);
     pauseTracking();
-    const setupResult = callWithErrorHandling(setup, instance, 0, [instance.props, setupContext]);
+    const setupResult = callWithErrorHandling(setup, instance, 0, [shallowReadonly(instance.props), setupContext]);
     resetTracking();
     unsetCurrentInstance();
     if (isPromise(setupResult)) {
@@ -4254,6 +5990,10 @@ function setupStatefulComponent(instance, isSSR) {
         });
       } else {
         instance.asyncDep = setupResult;
+        if (!instance.suspense) {
+          const name = (_a2 = Component.name) !== null && _a2 !== void 0 ? _a2 : "Anonymous";
+          warn$1(`Component <${name}>: setup function returned a promise, but no <Suspense> boundary was found in the parent component tree. A component with async setup() must be nested in a <Suspense> in order to be rendered.`);
+        }
       }
     } else {
       handleSetupResult(instance, setupResult, isSSR);
@@ -4270,18 +6010,32 @@ function handleSetupResult(instance, setupResult, isSSR) {
       instance.render = setupResult;
     }
   } else if (isObject(setupResult)) {
+    if (isVNode(setupResult)) {
+      warn$1(`setup() should not return VNodes directly - return a render function instead.`);
+    }
+    {
+      instance.devtoolsRawSetupState = setupResult;
+    }
     instance.setupState = proxyRefs(setupResult);
-  } else
-    ;
+    {
+      exposeSetupStateOnRenderContext(instance);
+    }
+  } else if (setupResult !== void 0) {
+    warn$1(`setup() should return an object. Received: ${setupResult === null ? "null" : typeof setupResult}`);
+  }
   finishComponentSetup(instance, isSSR);
 }
 let compile;
+const isRuntimeOnly = () => !compile;
 function finishComponentSetup(instance, isSSR, skipOptions) {
   const Component = instance.type;
   if (!instance.render) {
     if (!isSSR && compile && !Component.render) {
       const template = Component.template || resolveMergedOptions(instance).template;
       if (template) {
+        {
+          startMeasure(instance, `compile`);
+        }
         const { isCustomElement, compilerOptions } = instance.appContext.config;
         const { delimiters, compilerOptions: componentCompilerOptions } = Component;
         const finalCompilerOptions = extend(extend({
@@ -4289,6 +6043,9 @@ function finishComponentSetup(instance, isSSR, skipOptions) {
           delimiters
         }, compilerOptions), componentCompilerOptions);
         Component.render = compile(template, finalCompilerOptions);
+        {
+          endMeasure(instance, `compile`);
+        }
       }
     }
     instance.render = Component.render || NOOP;
@@ -4300,29 +6057,73 @@ function finishComponentSetup(instance, isSSR, skipOptions) {
     resetTracking();
     unsetCurrentInstance();
   }
+  if (!Component.render && instance.render === NOOP && !isSSR) {
+    if (Component.template) {
+      warn$1(
+        `Component provided template option but runtime compilation is not supported in this build of Vue. Configure your bundler to alias "vue" to "vue/dist/vue.esm-bundler.js".`
+        /* should not happen */
+      );
+    } else {
+      warn$1(`Component is missing template or render function.`);
+    }
+  }
 }
 function createAttrsProxy(instance) {
-  return new Proxy(instance.attrs, {
-    get(target, key) {
-      track(instance, "get", "$attrs");
-      return target[key];
+  return new Proxy(
+    instance.attrs,
+    {
+      get(target, key) {
+        markAttrsAccessed();
+        track(instance, "get", "$attrs");
+        return target[key];
+      },
+      set() {
+        warn$1(`setupContext.attrs is readonly.`);
+        return false;
+      },
+      deleteProperty() {
+        warn$1(`setupContext.attrs is readonly.`);
+        return false;
+      }
     }
-  });
+  );
 }
 function createSetupContext(instance) {
   const expose = (exposed) => {
+    {
+      if (instance.exposed) {
+        warn$1(`expose() should be called only once per setup().`);
+      }
+      if (exposed != null) {
+        let exposedType = typeof exposed;
+        if (exposedType === "object") {
+          if (isArray$1(exposed)) {
+            exposedType = "array";
+          } else if (isRef(exposed)) {
+            exposedType = "ref";
+          }
+        }
+        if (exposedType !== "object") {
+          warn$1(`expose() should be passed a plain object, received ${exposedType}.`);
+        }
+      }
+    }
     instance.exposed = exposed || {};
   };
   let attrs;
   {
-    return {
+    return Object.freeze({
       get attrs() {
         return attrs || (attrs = createAttrsProxy(instance));
       },
-      slots: instance.slots,
-      emit: instance.emit,
+      get slots() {
+        return shallowReadonly(instance.slots);
+      },
+      get emit() {
+        return (event, ...args) => instance.emit(event, ...args);
+      },
       expose
-    };
+    });
   }
 }
 function getExposeProxy(instance) {
@@ -4340,6 +6141,31 @@ function getExposeProxy(instance) {
       }
     }));
   }
+}
+const classifyRE = /(?:^|[-_])(\w)/g;
+const classify = (str) => str.replace(classifyRE, (c) => c.toUpperCase()).replace(/[-_]/g, "");
+function getComponentName(Component, includeInferred = true) {
+  return isFunction(Component) ? Component.displayName || Component.name : Component.name || includeInferred && Component.__name;
+}
+function formatComponentName(instance, Component, isRoot = false) {
+  let name = getComponentName(Component);
+  if (!name && Component.__file) {
+    const match = Component.__file.match(/([^/\\]+)\.\w+$/);
+    if (match) {
+      name = match[1];
+    }
+  }
+  if (!name && instance && instance.parent) {
+    const inferFromRegistry = (registry) => {
+      for (const key in registry) {
+        if (registry[key] === Component) {
+          return key;
+        }
+      }
+    };
+    name = inferFromRegistry(instance.components || instance.parent.type.components) || inferFromRegistry(instance.appContext.components);
+  }
+  return name ? classify(name) : isRoot ? `App` : `Anonymous`;
 }
 function isClassComponent(value) {
   return isFunction(value) && "__vccOpts" in value;
@@ -4367,13 +6193,197 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const ssrContextKey = Symbol(``);
+const ssrContextKey = Symbol(`ssrContext`);
 const useSSRContext = () => {
   {
     const ctx = inject(ssrContextKey);
+    if (!ctx) {
+      warn$1(`Server rendering context not provided. Make sure to only call useSSRContext() conditionally in the server build.`);
+    }
     return ctx;
   }
 };
+function isShallow(value) {
+  return !!(value && value[
+    "__v_isShallow"
+    /* ReactiveFlags.IS_SHALLOW */
+  ]);
+}
+function initCustomFormatter() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const vueStyle = { style: "color:#3ba776" };
+  const numberStyle = { style: "color:#0b1bc9" };
+  const stringStyle = { style: "color:#b62e24" };
+  const keywordStyle = { style: "color:#9d288c" };
+  const formatter = {
+    header(obj) {
+      if (!isObject(obj)) {
+        return null;
+      }
+      if (obj.__isVue) {
+        return ["div", vueStyle, `VueInstance`];
+      } else if (isRef(obj)) {
+        return [
+          "div",
+          {},
+          ["span", vueStyle, genRefFlag(obj)],
+          "<",
+          formatValue(obj.value),
+          `>`
+        ];
+      } else if (isReactive(obj)) {
+        return [
+          "div",
+          {},
+          ["span", vueStyle, isShallow(obj) ? "ShallowReactive" : "Reactive"],
+          "<",
+          formatValue(obj),
+          `>${isReadonly(obj) ? ` (readonly)` : ``}`
+        ];
+      } else if (isReadonly(obj)) {
+        return [
+          "div",
+          {},
+          ["span", vueStyle, isShallow(obj) ? "ShallowReadonly" : "Readonly"],
+          "<",
+          formatValue(obj),
+          ">"
+        ];
+      }
+      return null;
+    },
+    hasBody(obj) {
+      return obj && obj.__isVue;
+    },
+    body(obj) {
+      if (obj && obj.__isVue) {
+        return [
+          "div",
+          {},
+          ...formatInstance(obj.$)
+        ];
+      }
+    }
+  };
+  function formatInstance(instance) {
+    const blocks = [];
+    if (instance.type.props && instance.props) {
+      blocks.push(createInstanceBlock("props", toRaw(instance.props)));
+    }
+    if (instance.setupState !== EMPTY_OBJ) {
+      blocks.push(createInstanceBlock("setup", instance.setupState));
+    }
+    if (instance.data !== EMPTY_OBJ) {
+      blocks.push(createInstanceBlock("data", toRaw(instance.data)));
+    }
+    const computed2 = extractKeys(instance, "computed");
+    if (computed2) {
+      blocks.push(createInstanceBlock("computed", computed2));
+    }
+    const injected = extractKeys(instance, "inject");
+    if (injected) {
+      blocks.push(createInstanceBlock("injected", injected));
+    }
+    blocks.push([
+      "div",
+      {},
+      [
+        "span",
+        {
+          style: keywordStyle.style + ";opacity:0.66"
+        },
+        "$ (internal): "
+      ],
+      ["object", { object: instance }]
+    ]);
+    return blocks;
+  }
+  function createInstanceBlock(type, target) {
+    target = extend({}, target);
+    if (!Object.keys(target).length) {
+      return ["span", {}];
+    }
+    return [
+      "div",
+      { style: "line-height:1.25em;margin-bottom:0.6em" },
+      [
+        "div",
+        {
+          style: "color:#476582"
+        },
+        type
+      ],
+      [
+        "div",
+        {
+          style: "padding-left:1.25em"
+        },
+        ...Object.keys(target).map((key) => {
+          return [
+            "div",
+            {},
+            ["span", keywordStyle, key + ": "],
+            formatValue(target[key], false)
+          ];
+        })
+      ]
+    ];
+  }
+  function formatValue(v, asRaw = true) {
+    if (typeof v === "number") {
+      return ["span", numberStyle, v];
+    } else if (typeof v === "string") {
+      return ["span", stringStyle, JSON.stringify(v)];
+    } else if (typeof v === "boolean") {
+      return ["span", keywordStyle, v];
+    } else if (isObject(v)) {
+      return ["object", { object: asRaw ? toRaw(v) : v }];
+    } else {
+      return ["span", stringStyle, String(v)];
+    }
+  }
+  function extractKeys(instance, type) {
+    const Comp = instance.type;
+    if (isFunction(Comp)) {
+      return;
+    }
+    const extracted = {};
+    for (const key in instance.ctx) {
+      if (isKeyOfType(Comp, key, type)) {
+        extracted[key] = instance.ctx[key];
+      }
+    }
+    return extracted;
+  }
+  function isKeyOfType(Comp, key, type) {
+    const opts = Comp[type];
+    if (isArray$1(opts) && opts.includes(key) || isObject(opts) && key in opts) {
+      return true;
+    }
+    if (Comp.extends && isKeyOfType(Comp.extends, key, type)) {
+      return true;
+    }
+    if (Comp.mixins && Comp.mixins.some((m) => isKeyOfType(m, key, type))) {
+      return true;
+    }
+  }
+  function genRefFlag(v) {
+    if (isShallow(v)) {
+      return `ShallowRef`;
+    }
+    if (v.effect) {
+      return `ComputedRef`;
+    }
+    return `Ref`;
+  }
+  if (window.devtoolsFormatters) {
+    window.devtoolsFormatters.push(formatter);
+  } else {
+    window.devtoolsFormatters = [formatter];
+  }
+}
 const version = "3.2.47";
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
@@ -4482,6 +6492,7 @@ function patchStyle(el, prev, next) {
     }
   }
 }
+const semicolonRE = /[^\\];\s*$/;
 const importantRE = /\s*!important$/;
 function setStyle(style, name, val) {
   if (isArray$1(val)) {
@@ -4489,6 +6500,11 @@ function setStyle(style, name, val) {
   } else {
     if (val == null)
       val = "";
+    {
+      if (semicolonRE.test(val)) {
+        warn$1(`Unexpected semicolon at the end of '${name}' style value: '${val}'`);
+      }
+    }
     if (name.startsWith("--")) {
       style.setProperty(name, val);
     } else {
@@ -4530,11 +6546,11 @@ function patchAttr(el, key, value, isSVG, instance) {
       el.setAttributeNS(xlinkNS, key, value);
     }
   } else {
-    const isBoolean = isSpecialBooleanAttr(key);
-    if (value == null || isBoolean && !includeBooleanAttr(value)) {
+    const isBoolean2 = isSpecialBooleanAttr(key);
+    if (value == null || isBoolean2 && !includeBooleanAttr(value)) {
       el.removeAttribute(key);
     } else {
-      el.setAttribute(key, isBoolean ? "" : value);
+      el.setAttribute(key, isBoolean2 ? "" : value);
     }
   }
 }
@@ -4577,6 +6593,9 @@ function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspe
   try {
     el[key] = value;
   } catch (e) {
+    if (!needRemove) {
+      warn$1(`Failed setting prop "${key}" on <${el.tagName.toLowerCase()}>: value ${value} is invalid.`, e);
+    }
   }
   needRemove && el.removeAttribute(key);
 }
@@ -4699,6 +6718,10 @@ function ensureRenderer() {
 }
 const createApp = (...args) => {
   const app2 = ensureRenderer().createApp(...args);
+  {
+    injectNativeTagCheck(app2);
+    injectCompilerOptionsCheck(app2);
+  }
   const { mount } = app2;
   app2.mount = (containerOrSelector) => {
     const container = normalizeContainer(containerOrSelector);
@@ -4718,13 +6741,2024 @@ const createApp = (...args) => {
   };
   return app2;
 };
+function injectNativeTagCheck(app2) {
+  Object.defineProperty(app2.config, "isNativeTag", {
+    value: (tag) => isHTMLTag(tag) || isSVGTag(tag),
+    writable: false
+  });
+}
+function injectCompilerOptionsCheck(app2) {
+  {
+    const isCustomElement = app2.config.isCustomElement;
+    Object.defineProperty(app2.config, "isCustomElement", {
+      get() {
+        return isCustomElement;
+      },
+      set() {
+        warn$1(`The \`isCustomElement\` config option is deprecated. Use \`compilerOptions.isCustomElement\` instead.`);
+      }
+    });
+    const compilerOptions = app2.config.compilerOptions;
+    const msg = `The \`compilerOptions\` config option is only respected when using a build of Vue.js that includes the runtime compiler (aka "full build"). Since you are using the runtime-only build, \`compilerOptions\` must be passed to \`@vue/compiler-dom\` in the build setup instead.
+- For vue-loader: pass it via vue-loader's \`compilerOptions\` loader option.
+- For vue-cli: see https://cli.vuejs.org/guide/webpack.html#modifying-options-of-a-loader
+- For vite: pass it via @vitejs/plugin-vue options. See https://github.com/vitejs/vite/tree/main/packages/plugin-vue#example-for-passing-options-to-vuecompiler-dom`;
+    Object.defineProperty(app2.config, "compilerOptions", {
+      get() {
+        warn$1(msg);
+        return compilerOptions;
+      },
+      set() {
+        warn$1(msg);
+      }
+    });
+  }
+}
 function normalizeContainer(container) {
   if (isString(container)) {
     const res = document.querySelector(container);
+    if (!res) {
+      warn$1(`Failed to mount app: mount target selector "${container}" returned null.`);
+    }
     return res;
+  }
+  if (window.ShadowRoot && container instanceof window.ShadowRoot && container.mode === "closed") {
+    warn$1(`mounting on a ShadowRoot with \`{mode: "closed"}\` may lead to unpredictable bugs`);
   }
   return container;
 }
+function initDev() {
+  {
+    initCustomFormatter();
+  }
+}
+{
+  initDev();
+}
+var isVue2 = false;
+function set$1(target, key, val) {
+  if (Array.isArray(target)) {
+    target.length = Math.max(target.length, key);
+    target.splice(key, 1, val);
+    return val;
+  }
+  target[key] = val;
+  return val;
+}
+function del(target, key) {
+  if (Array.isArray(target)) {
+    target.splice(key, 1);
+    return;
+  }
+  delete target[key];
+}
+function getDevtoolsGlobalHook() {
+  return getTarget().__VUE_DEVTOOLS_GLOBAL_HOOK__;
+}
+function getTarget() {
+  return typeof navigator !== "undefined" && typeof window !== "undefined" ? window : typeof {} !== "undefined" ? {} : {};
+}
+const isProxyAvailable = typeof Proxy === "function";
+const HOOK_SETUP = "devtools-plugin:setup";
+const HOOK_PLUGIN_SETTINGS_SET = "plugin:settings:set";
+let supported;
+let perf;
+function isPerformanceSupported() {
+  var _a2;
+  if (supported !== void 0) {
+    return supported;
+  }
+  if (typeof window !== "undefined" && window.performance) {
+    supported = true;
+    perf = window.performance;
+  } else if (typeof {} !== "undefined" && ((_a2 = {}.perf_hooks) === null || _a2 === void 0 ? void 0 : _a2.performance)) {
+    supported = true;
+    perf = {}.perf_hooks.performance;
+  } else {
+    supported = false;
+  }
+  return supported;
+}
+function now() {
+  return isPerformanceSupported() ? perf.now() : Date.now();
+}
+class ApiProxy {
+  constructor(plugin, hook) {
+    this.target = null;
+    this.targetQueue = [];
+    this.onQueue = [];
+    this.plugin = plugin;
+    this.hook = hook;
+    const defaultSettings = {};
+    if (plugin.settings) {
+      for (const id in plugin.settings) {
+        const item = plugin.settings[id];
+        defaultSettings[id] = item.defaultValue;
+      }
+    }
+    const localSettingsSaveId = `__vue-devtools-plugin-settings__${plugin.id}`;
+    let currentSettings = Object.assign({}, defaultSettings);
+    try {
+      const raw = localStorage.getItem(localSettingsSaveId);
+      const data = JSON.parse(raw);
+      Object.assign(currentSettings, data);
+    } catch (e) {
+    }
+    this.fallbacks = {
+      getSettings() {
+        return currentSettings;
+      },
+      setSettings(value) {
+        try {
+          localStorage.setItem(localSettingsSaveId, JSON.stringify(value));
+        } catch (e) {
+        }
+        currentSettings = value;
+      },
+      now() {
+        return now();
+      }
+    };
+    if (hook) {
+      hook.on(HOOK_PLUGIN_SETTINGS_SET, (pluginId, value) => {
+        if (pluginId === this.plugin.id) {
+          this.fallbacks.setSettings(value);
+        }
+      });
+    }
+    this.proxiedOn = new Proxy({}, {
+      get: (_target, prop) => {
+        if (this.target) {
+          return this.target.on[prop];
+        } else {
+          return (...args) => {
+            this.onQueue.push({
+              method: prop,
+              args
+            });
+          };
+        }
+      }
+    });
+    this.proxiedTarget = new Proxy({}, {
+      get: (_target, prop) => {
+        if (this.target) {
+          return this.target[prop];
+        } else if (prop === "on") {
+          return this.proxiedOn;
+        } else if (Object.keys(this.fallbacks).includes(prop)) {
+          return (...args) => {
+            this.targetQueue.push({
+              method: prop,
+              args,
+              resolve: () => {
+              }
+            });
+            return this.fallbacks[prop](...args);
+          };
+        } else {
+          return (...args) => {
+            return new Promise((resolve) => {
+              this.targetQueue.push({
+                method: prop,
+                args,
+                resolve
+              });
+            });
+          };
+        }
+      }
+    });
+  }
+  async setRealTarget(target) {
+    this.target = target;
+    for (const item of this.onQueue) {
+      this.target.on[item.method](...item.args);
+    }
+    for (const item of this.targetQueue) {
+      item.resolve(await this.target[item.method](...item.args));
+    }
+  }
+}
+function setupDevtoolsPlugin(pluginDescriptor, setupFn) {
+  const descriptor = pluginDescriptor;
+  const target = getTarget();
+  const hook = getDevtoolsGlobalHook();
+  const enableProxy = isProxyAvailable && descriptor.enableEarlyProxy;
+  if (hook && (target.__VUE_DEVTOOLS_PLUGIN_API_AVAILABLE__ || !enableProxy)) {
+    hook.emit(HOOK_SETUP, pluginDescriptor, setupFn);
+  } else {
+    const proxy = enableProxy ? new ApiProxy(descriptor, hook) : null;
+    const list = target.__VUE_DEVTOOLS_PLUGINS__ = target.__VUE_DEVTOOLS_PLUGINS__ || [];
+    list.push({
+      pluginDescriptor: descriptor,
+      setupFn,
+      proxy
+    });
+    if (proxy)
+      setupFn(proxy.proxiedTarget);
+  }
+}
+/*!
+  * pinia v2.0.33
+  * (c) 2023 Eduardo San Martin Morote
+  * @license MIT
+  */
+let activePinia;
+const setActivePinia = (pinia2) => activePinia = pinia2;
+const piniaSymbol = Symbol("pinia");
+function isPlainObject(o) {
+  return o && typeof o === "object" && Object.prototype.toString.call(o) === "[object Object]" && typeof o.toJSON !== "function";
+}
+var MutationType;
+(function(MutationType2) {
+  MutationType2["direct"] = "direct";
+  MutationType2["patchObject"] = "patch object";
+  MutationType2["patchFunction"] = "patch function";
+})(MutationType || (MutationType = {}));
+const IS_CLIENT = typeof window !== "undefined";
+const USE_DEVTOOLS = IS_CLIENT;
+const _global$1 = /* @__PURE__ */ (() => typeof window === "object" && window.window === window ? window : typeof self === "object" && self.self === self ? self : typeof {} === "object" && {}.global === {} ? {} : typeof globalThis === "object" ? globalThis : { HTMLElement: null })();
+function bom(blob, { autoBom = false } = {}) {
+  if (autoBom && /^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(blob.type)) {
+    return new Blob([String.fromCharCode(65279), blob], { type: blob.type });
+  }
+  return blob;
+}
+function download(url, name, opts) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", url);
+  xhr.responseType = "blob";
+  xhr.onload = function() {
+    saveAs(xhr.response, name, opts);
+  };
+  xhr.onerror = function() {
+    console.error("could not download file");
+  };
+  xhr.send();
+}
+function corsEnabled(url) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("HEAD", url, false);
+  try {
+    xhr.send();
+  } catch (e) {
+  }
+  return xhr.status >= 200 && xhr.status <= 299;
+}
+function click(node) {
+  try {
+    node.dispatchEvent(new MouseEvent("click"));
+  } catch (e) {
+    const evt = document.createEvent("MouseEvents");
+    evt.initMouseEvent("click", true, true, window, 0, 0, 0, 80, 20, false, false, false, false, 0, null);
+    node.dispatchEvent(evt);
+  }
+}
+const _navigator = typeof navigator === "object" ? navigator : { userAgent: "" };
+const isMacOSWebView = /* @__PURE__ */ (() => /Macintosh/.test(_navigator.userAgent) && /AppleWebKit/.test(_navigator.userAgent) && !/Safari/.test(_navigator.userAgent))();
+const saveAs = !IS_CLIENT ? () => {
+} : (
+  // Use download attribute first if possible (#193 Lumia mobile) unless this is a macOS WebView or mini program
+  typeof HTMLAnchorElement !== "undefined" && "download" in HTMLAnchorElement.prototype && !isMacOSWebView ? downloadSaveAs : (
+    // Use msSaveOrOpenBlob as a second approach
+    "msSaveOrOpenBlob" in _navigator ? msSaveAs : (
+      // Fallback to using FileReader and a popup
+      fileSaverSaveAs
+    )
+  )
+);
+function downloadSaveAs(blob, name = "download", opts) {
+  const a = document.createElement("a");
+  a.download = name;
+  a.rel = "noopener";
+  if (typeof blob === "string") {
+    a.href = blob;
+    if (a.origin !== location.origin) {
+      if (corsEnabled(a.href)) {
+        download(blob, name, opts);
+      } else {
+        a.target = "_blank";
+        click(a);
+      }
+    } else {
+      click(a);
+    }
+  } else {
+    a.href = URL.createObjectURL(blob);
+    setTimeout(function() {
+      URL.revokeObjectURL(a.href);
+    }, 4e4);
+    setTimeout(function() {
+      click(a);
+    }, 0);
+  }
+}
+function msSaveAs(blob, name = "download", opts) {
+  if (typeof blob === "string") {
+    if (corsEnabled(blob)) {
+      download(blob, name, opts);
+    } else {
+      const a = document.createElement("a");
+      a.href = blob;
+      a.target = "_blank";
+      setTimeout(function() {
+        click(a);
+      });
+    }
+  } else {
+    navigator.msSaveOrOpenBlob(bom(blob, opts), name);
+  }
+}
+function fileSaverSaveAs(blob, name, opts, popup) {
+  popup = popup || open("", "_blank");
+  if (popup) {
+    popup.document.title = popup.document.body.innerText = "downloading...";
+  }
+  if (typeof blob === "string")
+    return download(blob, name, opts);
+  const force = blob.type === "application/octet-stream";
+  const isSafari = /constructor/i.test(String(_global$1.HTMLElement)) || "safari" in _global$1;
+  const isChromeIOS = /CriOS\/[\d]+/.test(navigator.userAgent);
+  if ((isChromeIOS || force && isSafari || isMacOSWebView) && typeof FileReader !== "undefined") {
+    const reader = new FileReader();
+    reader.onloadend = function() {
+      let url = reader.result;
+      if (typeof url !== "string") {
+        popup = null;
+        throw new Error("Wrong reader.result type");
+      }
+      url = isChromeIOS ? url : url.replace(/^data:[^;]*;/, "data:attachment/file;");
+      if (popup) {
+        popup.location.href = url;
+      } else {
+        location.assign(url);
+      }
+      popup = null;
+    };
+    reader.readAsDataURL(blob);
+  } else {
+    const url = URL.createObjectURL(blob);
+    if (popup)
+      popup.location.assign(url);
+    else
+      location.href = url;
+    popup = null;
+    setTimeout(function() {
+      URL.revokeObjectURL(url);
+    }, 4e4);
+  }
+}
+function toastMessage(message, type) {
+  const piniaMessage = "🍍 " + message;
+  if (typeof __VUE_DEVTOOLS_TOAST__ === "function") {
+    __VUE_DEVTOOLS_TOAST__(piniaMessage, type);
+  } else if (type === "error") {
+    console.error(piniaMessage);
+  } else if (type === "warn") {
+    console.warn(piniaMessage);
+  } else {
+    console.log(piniaMessage);
+  }
+}
+function isPinia(o) {
+  return "_a" in o && "install" in o;
+}
+function checkClipboardAccess() {
+  if (!("clipboard" in navigator)) {
+    toastMessage(`Your browser doesn't support the Clipboard API`, "error");
+    return true;
+  }
+}
+function checkNotFocusedError(error) {
+  if (error instanceof Error && error.message.toLowerCase().includes("document is not focused")) {
+    toastMessage('You need to activate the "Emulate a focused page" setting in the "Rendering" panel of devtools.', "warn");
+    return true;
+  }
+  return false;
+}
+async function actionGlobalCopyState(pinia2) {
+  if (checkClipboardAccess())
+    return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(pinia2.state.value));
+    toastMessage("Global state copied to clipboard.");
+  } catch (error) {
+    if (checkNotFocusedError(error))
+      return;
+    toastMessage(`Failed to serialize the state. Check the console for more details.`, "error");
+    console.error(error);
+  }
+}
+async function actionGlobalPasteState(pinia2) {
+  if (checkClipboardAccess())
+    return;
+  try {
+    pinia2.state.value = JSON.parse(await navigator.clipboard.readText());
+    toastMessage("Global state pasted from clipboard.");
+  } catch (error) {
+    if (checkNotFocusedError(error))
+      return;
+    toastMessage(`Failed to deserialize the state from clipboard. Check the console for more details.`, "error");
+    console.error(error);
+  }
+}
+async function actionGlobalSaveState(pinia2) {
+  try {
+    saveAs(new Blob([JSON.stringify(pinia2.state.value)], {
+      type: "text/plain;charset=utf-8"
+    }), "pinia-state.json");
+  } catch (error) {
+    toastMessage(`Failed to export the state as JSON. Check the console for more details.`, "error");
+    console.error(error);
+  }
+}
+let fileInput;
+function getFileOpener() {
+  if (!fileInput) {
+    fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".json";
+  }
+  function openFile() {
+    return new Promise((resolve, reject) => {
+      fileInput.onchange = async () => {
+        const files = fileInput.files;
+        if (!files)
+          return resolve(null);
+        const file = files.item(0);
+        if (!file)
+          return resolve(null);
+        return resolve({ text: await file.text(), file });
+      };
+      fileInput.oncancel = () => resolve(null);
+      fileInput.onerror = reject;
+      fileInput.click();
+    });
+  }
+  return openFile;
+}
+async function actionGlobalOpenStateFile(pinia2) {
+  try {
+    const open2 = await getFileOpener();
+    const result = await open2();
+    if (!result)
+      return;
+    const { text, file } = result;
+    pinia2.state.value = JSON.parse(text);
+    toastMessage(`Global state imported from "${file.name}".`);
+  } catch (error) {
+    toastMessage(`Failed to export the state as JSON. Check the console for more details.`, "error");
+    console.error(error);
+  }
+}
+function formatDisplay$1(display) {
+  return {
+    _custom: {
+      display
+    }
+  };
+}
+const PINIA_ROOT_LABEL = "🍍 Pinia (root)";
+const PINIA_ROOT_ID = "_root";
+function formatStoreForInspectorTree(store) {
+  return isPinia(store) ? {
+    id: PINIA_ROOT_ID,
+    label: PINIA_ROOT_LABEL
+  } : {
+    id: store.$id,
+    label: store.$id
+  };
+}
+function formatStoreForInspectorState(store) {
+  if (isPinia(store)) {
+    const storeNames = Array.from(store._s.keys());
+    const storeMap = store._s;
+    const state2 = {
+      state: storeNames.map((storeId) => ({
+        editable: true,
+        key: storeId,
+        value: store.state.value[storeId]
+      })),
+      getters: storeNames.filter((id) => storeMap.get(id)._getters).map((id) => {
+        const store2 = storeMap.get(id);
+        return {
+          editable: false,
+          key: id,
+          value: store2._getters.reduce((getters, key) => {
+            getters[key] = store2[key];
+            return getters;
+          }, {})
+        };
+      })
+    };
+    return state2;
+  }
+  const state = {
+    state: Object.keys(store.$state).map((key) => ({
+      editable: true,
+      key,
+      value: store.$state[key]
+    }))
+  };
+  if (store._getters && store._getters.length) {
+    state.getters = store._getters.map((getterName) => ({
+      editable: false,
+      key: getterName,
+      value: store[getterName]
+    }));
+  }
+  if (store._customProperties.size) {
+    state.customProperties = Array.from(store._customProperties).map((key) => ({
+      editable: true,
+      key,
+      value: store[key]
+    }));
+  }
+  return state;
+}
+function formatEventData(events) {
+  if (!events)
+    return {};
+  if (Array.isArray(events)) {
+    return events.reduce((data, event) => {
+      data.keys.push(event.key);
+      data.operations.push(event.type);
+      data.oldValue[event.key] = event.oldValue;
+      data.newValue[event.key] = event.newValue;
+      return data;
+    }, {
+      oldValue: {},
+      keys: [],
+      operations: [],
+      newValue: {}
+    });
+  } else {
+    return {
+      operation: formatDisplay$1(events.type),
+      key: formatDisplay$1(events.key),
+      oldValue: events.oldValue,
+      newValue: events.newValue
+    };
+  }
+}
+function formatMutationType(type) {
+  switch (type) {
+    case MutationType.direct:
+      return "mutation";
+    case MutationType.patchFunction:
+      return "$patch";
+    case MutationType.patchObject:
+      return "$patch";
+    default:
+      return "unknown";
+  }
+}
+let isTimelineActive = true;
+const componentStateTypes = [];
+const MUTATIONS_LAYER_ID = "pinia:mutations";
+const INSPECTOR_ID = "pinia";
+const { assign: assign$1 } = Object;
+const getStoreType = (id) => "🍍 " + id;
+function registerPiniaDevtools(app2, pinia2) {
+  setupDevtoolsPlugin({
+    id: "dev.esm.pinia",
+    label: "Pinia 🍍",
+    logo: "https://pinia.vuejs.org/logo.svg",
+    packageName: "pinia",
+    homepage: "https://pinia.vuejs.org",
+    componentStateTypes,
+    app: app2
+  }, (api) => {
+    if (typeof api.now !== "function") {
+      toastMessage("You seem to be using an outdated version of Vue Devtools. Are you still using the Beta release instead of the stable one? You can find the links at https://devtools.vuejs.org/guide/installation.html.");
+    }
+    api.addTimelineLayer({
+      id: MUTATIONS_LAYER_ID,
+      label: `Pinia 🍍`,
+      color: 15064968
+    });
+    api.addInspector({
+      id: INSPECTOR_ID,
+      label: "Pinia 🍍",
+      icon: "storage",
+      treeFilterPlaceholder: "Search stores",
+      actions: [
+        {
+          icon: "content_copy",
+          action: () => {
+            actionGlobalCopyState(pinia2);
+          },
+          tooltip: "Serialize and copy the state"
+        },
+        {
+          icon: "content_paste",
+          action: async () => {
+            await actionGlobalPasteState(pinia2);
+            api.sendInspectorTree(INSPECTOR_ID);
+            api.sendInspectorState(INSPECTOR_ID);
+          },
+          tooltip: "Replace the state with the content of your clipboard"
+        },
+        {
+          icon: "save",
+          action: () => {
+            actionGlobalSaveState(pinia2);
+          },
+          tooltip: "Save the state as a JSON file"
+        },
+        {
+          icon: "folder_open",
+          action: async () => {
+            await actionGlobalOpenStateFile(pinia2);
+            api.sendInspectorTree(INSPECTOR_ID);
+            api.sendInspectorState(INSPECTOR_ID);
+          },
+          tooltip: "Import the state from a JSON file"
+        }
+      ],
+      nodeActions: [
+        {
+          icon: "restore",
+          tooltip: "Reset the state (option store only)",
+          action: (nodeId) => {
+            const store = pinia2._s.get(nodeId);
+            if (!store) {
+              toastMessage(`Cannot reset "${nodeId}" store because it wasn't found.`, "warn");
+            } else if (!store._isOptionsAPI) {
+              toastMessage(`Cannot reset "${nodeId}" store because it's a setup store.`, "warn");
+            } else {
+              store.$reset();
+              toastMessage(`Store "${nodeId}" reset.`);
+            }
+          }
+        }
+      ]
+    });
+    api.on.inspectComponent((payload, ctx) => {
+      const proxy = payload.componentInstance && payload.componentInstance.proxy;
+      if (proxy && proxy._pStores) {
+        const piniaStores = payload.componentInstance.proxy._pStores;
+        Object.values(piniaStores).forEach((store) => {
+          payload.instanceData.state.push({
+            type: getStoreType(store.$id),
+            key: "state",
+            editable: true,
+            value: store._isOptionsAPI ? {
+              _custom: {
+                value: toRaw(store.$state),
+                actions: [
+                  {
+                    icon: "restore",
+                    tooltip: "Reset the state of this store",
+                    action: () => store.$reset()
+                  }
+                ]
+              }
+            } : (
+              // NOTE: workaround to unwrap transferred refs
+              Object.keys(store.$state).reduce((state, key) => {
+                state[key] = store.$state[key];
+                return state;
+              }, {})
+            )
+          });
+          if (store._getters && store._getters.length) {
+            payload.instanceData.state.push({
+              type: getStoreType(store.$id),
+              key: "getters",
+              editable: false,
+              value: store._getters.reduce((getters, key) => {
+                try {
+                  getters[key] = store[key];
+                } catch (error) {
+                  getters[key] = error;
+                }
+                return getters;
+              }, {})
+            });
+          }
+        });
+      }
+    });
+    api.on.getInspectorTree((payload) => {
+      if (payload.app === app2 && payload.inspectorId === INSPECTOR_ID) {
+        let stores = [pinia2];
+        stores = stores.concat(Array.from(pinia2._s.values()));
+        payload.rootNodes = (payload.filter ? stores.filter((store) => "$id" in store ? store.$id.toLowerCase().includes(payload.filter.toLowerCase()) : PINIA_ROOT_LABEL.toLowerCase().includes(payload.filter.toLowerCase())) : stores).map(formatStoreForInspectorTree);
+      }
+    });
+    api.on.getInspectorState((payload) => {
+      if (payload.app === app2 && payload.inspectorId === INSPECTOR_ID) {
+        const inspectedStore = payload.nodeId === PINIA_ROOT_ID ? pinia2 : pinia2._s.get(payload.nodeId);
+        if (!inspectedStore) {
+          return;
+        }
+        if (inspectedStore) {
+          payload.state = formatStoreForInspectorState(inspectedStore);
+        }
+      }
+    });
+    api.on.editInspectorState((payload, ctx) => {
+      if (payload.app === app2 && payload.inspectorId === INSPECTOR_ID) {
+        const inspectedStore = payload.nodeId === PINIA_ROOT_ID ? pinia2 : pinia2._s.get(payload.nodeId);
+        if (!inspectedStore) {
+          return toastMessage(`store "${payload.nodeId}" not found`, "error");
+        }
+        const { path } = payload;
+        if (!isPinia(inspectedStore)) {
+          if (path.length !== 1 || !inspectedStore._customProperties.has(path[0]) || path[0] in inspectedStore.$state) {
+            path.unshift("$state");
+          }
+        } else {
+          path.unshift("state");
+        }
+        isTimelineActive = false;
+        payload.set(inspectedStore, path, payload.state.value);
+        isTimelineActive = true;
+      }
+    });
+    api.on.editComponentState((payload) => {
+      if (payload.type.startsWith("🍍")) {
+        const storeId = payload.type.replace(/^🍍\s*/, "");
+        const store = pinia2._s.get(storeId);
+        if (!store) {
+          return toastMessage(`store "${storeId}" not found`, "error");
+        }
+        const { path } = payload;
+        if (path[0] !== "state") {
+          return toastMessage(`Invalid path for store "${storeId}":
+${path}
+Only state can be modified.`);
+        }
+        path[0] = "$state";
+        isTimelineActive = false;
+        payload.set(store, path, payload.state.value);
+        isTimelineActive = true;
+      }
+    });
+  });
+}
+function addStoreToDevtools(app2, store) {
+  if (!componentStateTypes.includes(getStoreType(store.$id))) {
+    componentStateTypes.push(getStoreType(store.$id));
+  }
+  setupDevtoolsPlugin({
+    id: "dev.esm.pinia",
+    label: "Pinia 🍍",
+    logo: "https://pinia.vuejs.org/logo.svg",
+    packageName: "pinia",
+    homepage: "https://pinia.vuejs.org",
+    componentStateTypes,
+    app: app2,
+    settings: {
+      logStoreChanges: {
+        label: "Notify about new/deleted stores",
+        type: "boolean",
+        defaultValue: true
+      }
+      // useEmojis: {
+      //   label: 'Use emojis in messages ⚡️',
+      //   type: 'boolean',
+      //   defaultValue: true,
+      // },
+    }
+  }, (api) => {
+    const now2 = typeof api.now === "function" ? api.now.bind(api) : Date.now;
+    store.$onAction(({ after, onError, name, args }) => {
+      const groupId = runningActionId++;
+      api.addTimelineEvent({
+        layerId: MUTATIONS_LAYER_ID,
+        event: {
+          time: now2(),
+          title: "🛫 " + name,
+          subtitle: "start",
+          data: {
+            store: formatDisplay$1(store.$id),
+            action: formatDisplay$1(name),
+            args
+          },
+          groupId
+        }
+      });
+      after((result) => {
+        activeAction = void 0;
+        api.addTimelineEvent({
+          layerId: MUTATIONS_LAYER_ID,
+          event: {
+            time: now2(),
+            title: "🛬 " + name,
+            subtitle: "end",
+            data: {
+              store: formatDisplay$1(store.$id),
+              action: formatDisplay$1(name),
+              args,
+              result
+            },
+            groupId
+          }
+        });
+      });
+      onError((error) => {
+        activeAction = void 0;
+        api.addTimelineEvent({
+          layerId: MUTATIONS_LAYER_ID,
+          event: {
+            time: now2(),
+            logType: "error",
+            title: "💥 " + name,
+            subtitle: "end",
+            data: {
+              store: formatDisplay$1(store.$id),
+              action: formatDisplay$1(name),
+              args,
+              error
+            },
+            groupId
+          }
+        });
+      });
+    }, true);
+    store._customProperties.forEach((name) => {
+      watch(() => unref(store[name]), (newValue, oldValue) => {
+        api.notifyComponentUpdate();
+        api.sendInspectorState(INSPECTOR_ID);
+        if (isTimelineActive) {
+          api.addTimelineEvent({
+            layerId: MUTATIONS_LAYER_ID,
+            event: {
+              time: now2(),
+              title: "Change",
+              subtitle: name,
+              data: {
+                newValue,
+                oldValue
+              },
+              groupId: activeAction
+            }
+          });
+        }
+      }, { deep: true });
+    });
+    store.$subscribe(({ events, type }, state) => {
+      api.notifyComponentUpdate();
+      api.sendInspectorState(INSPECTOR_ID);
+      if (!isTimelineActive)
+        return;
+      const eventData = {
+        time: now2(),
+        title: formatMutationType(type),
+        data: assign$1({ store: formatDisplay$1(store.$id) }, formatEventData(events)),
+        groupId: activeAction
+      };
+      activeAction = void 0;
+      if (type === MutationType.patchFunction) {
+        eventData.subtitle = "⤵️";
+      } else if (type === MutationType.patchObject) {
+        eventData.subtitle = "🧩";
+      } else if (events && !Array.isArray(events)) {
+        eventData.subtitle = events.type;
+      }
+      if (events) {
+        eventData.data["rawEvent(s)"] = {
+          _custom: {
+            display: "DebuggerEvent",
+            type: "object",
+            tooltip: "raw DebuggerEvent[]",
+            value: events
+          }
+        };
+      }
+      api.addTimelineEvent({
+        layerId: MUTATIONS_LAYER_ID,
+        event: eventData
+      });
+    }, { detached: true, flush: "sync" });
+    const hotUpdate = store._hotUpdate;
+    store._hotUpdate = markRaw((newStore) => {
+      hotUpdate(newStore);
+      api.addTimelineEvent({
+        layerId: MUTATIONS_LAYER_ID,
+        event: {
+          time: now2(),
+          title: "🔥 " + store.$id,
+          subtitle: "HMR update",
+          data: {
+            store: formatDisplay$1(store.$id),
+            info: formatDisplay$1(`HMR update`)
+          }
+        }
+      });
+      api.notifyComponentUpdate();
+      api.sendInspectorTree(INSPECTOR_ID);
+      api.sendInspectorState(INSPECTOR_ID);
+    });
+    const { $dispose } = store;
+    store.$dispose = () => {
+      $dispose();
+      api.notifyComponentUpdate();
+      api.sendInspectorTree(INSPECTOR_ID);
+      api.sendInspectorState(INSPECTOR_ID);
+      api.getSettings().logStoreChanges && toastMessage(`Disposed "${store.$id}" store 🗑`);
+    };
+    api.notifyComponentUpdate();
+    api.sendInspectorTree(INSPECTOR_ID);
+    api.sendInspectorState(INSPECTOR_ID);
+    api.getSettings().logStoreChanges && toastMessage(`"${store.$id}" store installed 🆕`);
+  });
+}
+let runningActionId = 0;
+let activeAction;
+function patchActionForGrouping(store, actionNames) {
+  const actions = actionNames.reduce((storeActions, actionName) => {
+    storeActions[actionName] = toRaw(store)[actionName];
+    return storeActions;
+  }, {});
+  for (const actionName in actions) {
+    store[actionName] = function() {
+      const _actionId = runningActionId;
+      const trackedStore = new Proxy(store, {
+        get(...args) {
+          activeAction = _actionId;
+          return Reflect.get(...args);
+        },
+        set(...args) {
+          activeAction = _actionId;
+          return Reflect.set(...args);
+        }
+      });
+      return actions[actionName].apply(trackedStore, arguments);
+    };
+  }
+}
+function devtoolsPlugin({ app: app2, store, options }) {
+  if (store.$id.startsWith("__hot:")) {
+    return;
+  }
+  if (options.state) {
+    store._isOptionsAPI = true;
+  }
+  if (typeof options.state === "function") {
+    patchActionForGrouping(
+      // @ts-expect-error: can cast the store...
+      store,
+      Object.keys(options.actions)
+    );
+    const originalHotUpdate = store._hotUpdate;
+    toRaw(store)._hotUpdate = function(newStore) {
+      originalHotUpdate.apply(this, arguments);
+      patchActionForGrouping(store, Object.keys(newStore._hmrPayload.actions));
+    };
+  }
+  addStoreToDevtools(
+    app2,
+    // FIXME: is there a way to allow the assignment from Store<Id, S, G, A> to StoreGeneric?
+    store
+  );
+}
+function createPinia() {
+  const scope = effectScope(true);
+  const state = scope.run(() => ref({}));
+  let _p = [];
+  let toBeInstalled = [];
+  const pinia2 = markRaw({
+    install(app2) {
+      setActivePinia(pinia2);
+      {
+        pinia2._a = app2;
+        app2.provide(piniaSymbol, pinia2);
+        app2.config.globalProperties.$pinia = pinia2;
+        if (USE_DEVTOOLS) {
+          registerPiniaDevtools(app2, pinia2);
+        }
+        toBeInstalled.forEach((plugin) => _p.push(plugin));
+        toBeInstalled = [];
+      }
+    },
+    use(plugin) {
+      if (!this._a && !isVue2) {
+        toBeInstalled.push(plugin);
+      } else {
+        _p.push(plugin);
+      }
+      return this;
+    },
+    _p,
+    // it's actually undefined here
+    // @ts-expect-error
+    _a: null,
+    _e: scope,
+    _s: /* @__PURE__ */ new Map(),
+    state
+  });
+  if (USE_DEVTOOLS && typeof Proxy !== "undefined") {
+    pinia2.use(devtoolsPlugin);
+  }
+  return pinia2;
+}
+function patchObject(newState, oldState) {
+  for (const key in oldState) {
+    const subPatch = oldState[key];
+    if (!(key in newState)) {
+      continue;
+    }
+    const targetValue = newState[key];
+    if (isPlainObject(targetValue) && isPlainObject(subPatch) && !isRef(subPatch) && !isReactive(subPatch)) {
+      newState[key] = patchObject(targetValue, subPatch);
+    } else {
+      {
+        newState[key] = subPatch;
+      }
+    }
+  }
+  return newState;
+}
+const noop$1 = () => {
+};
+function addSubscription(subscriptions, callback, detached, onCleanup = noop$1) {
+  subscriptions.push(callback);
+  const removeSubscription = () => {
+    const idx = subscriptions.indexOf(callback);
+    if (idx > -1) {
+      subscriptions.splice(idx, 1);
+      onCleanup();
+    }
+  };
+  if (!detached && getCurrentScope()) {
+    onScopeDispose(removeSubscription);
+  }
+  return removeSubscription;
+}
+function triggerSubscriptions(subscriptions, ...args) {
+  subscriptions.slice().forEach((callback) => {
+    callback(...args);
+  });
+}
+function mergeReactiveObjects(target, patchToApply) {
+  if (target instanceof Map && patchToApply instanceof Map) {
+    patchToApply.forEach((value, key) => target.set(key, value));
+  }
+  if (target instanceof Set && patchToApply instanceof Set) {
+    patchToApply.forEach(target.add, target);
+  }
+  for (const key in patchToApply) {
+    if (!patchToApply.hasOwnProperty(key))
+      continue;
+    const subPatch = patchToApply[key];
+    const targetValue = target[key];
+    if (isPlainObject(targetValue) && isPlainObject(subPatch) && target.hasOwnProperty(key) && !isRef(subPatch) && !isReactive(subPatch)) {
+      target[key] = mergeReactiveObjects(targetValue, subPatch);
+    } else {
+      target[key] = subPatch;
+    }
+  }
+  return target;
+}
+const skipHydrateSymbol = Symbol("pinia:skipHydration");
+function shouldHydrate(obj) {
+  return !isPlainObject(obj) || !obj.hasOwnProperty(skipHydrateSymbol);
+}
+const { assign: assign$2 } = Object;
+function isComputed(o) {
+  return !!(isRef(o) && o.effect);
+}
+function createOptionsStore(id, options, pinia2, hot) {
+  const { state, actions, getters } = options;
+  const initialState = pinia2.state.value[id];
+  let store;
+  function setup() {
+    if (!initialState && !hot) {
+      {
+        pinia2.state.value[id] = state ? state() : {};
+      }
+    }
+    const localState = hot ? (
+      // use ref() to unwrap refs inside state TODO: check if this is still necessary
+      toRefs(ref(state ? state() : {}).value)
+    ) : toRefs(pinia2.state.value[id]);
+    return assign$2(localState, actions, Object.keys(getters || {}).reduce((computedGetters, name) => {
+      if (name in localState) {
+        console.warn(`[🍍]: A getter cannot have the same name as another state property. Rename one of them. Found with "${name}" in store "${id}".`);
+      }
+      computedGetters[name] = markRaw(computed(() => {
+        setActivePinia(pinia2);
+        const store2 = pinia2._s.get(id);
+        return getters[name].call(store2, store2);
+      }));
+      return computedGetters;
+    }, {}));
+  }
+  store = createSetupStore(id, setup, options, pinia2, hot, true);
+  return store;
+}
+function createSetupStore($id, setup, options = {}, pinia2, hot, isOptionsStore) {
+  let scope;
+  const optionsForPlugin = assign$2({ actions: {} }, options);
+  if (!pinia2._e.active) {
+    throw new Error("Pinia destroyed");
+  }
+  const $subscribeOptions = {
+    deep: true
+    // flush: 'post',
+  };
+  {
+    $subscribeOptions.onTrigger = (event) => {
+      if (isListening) {
+        debuggerEvents = event;
+      } else if (isListening == false && !store._hotUpdating) {
+        if (Array.isArray(debuggerEvents)) {
+          debuggerEvents.push(event);
+        } else {
+          console.error("🍍 debuggerEvents should be an array. This is most likely an internal Pinia bug.");
+        }
+      }
+    };
+  }
+  let isListening;
+  let isSyncListening;
+  let subscriptions = markRaw([]);
+  let actionSubscriptions = markRaw([]);
+  let debuggerEvents;
+  const initialState = pinia2.state.value[$id];
+  if (!isOptionsStore && !initialState && !hot) {
+    {
+      pinia2.state.value[$id] = {};
+    }
+  }
+  const hotState = ref({});
+  let activeListener;
+  function $patch(partialStateOrMutator) {
+    let subscriptionMutation;
+    isListening = isSyncListening = false;
+    {
+      debuggerEvents = [];
+    }
+    if (typeof partialStateOrMutator === "function") {
+      partialStateOrMutator(pinia2.state.value[$id]);
+      subscriptionMutation = {
+        type: MutationType.patchFunction,
+        storeId: $id,
+        events: debuggerEvents
+      };
+    } else {
+      mergeReactiveObjects(pinia2.state.value[$id], partialStateOrMutator);
+      subscriptionMutation = {
+        type: MutationType.patchObject,
+        payload: partialStateOrMutator,
+        storeId: $id,
+        events: debuggerEvents
+      };
+    }
+    const myListenerId = activeListener = Symbol();
+    nextTick().then(() => {
+      if (activeListener === myListenerId) {
+        isListening = true;
+      }
+    });
+    isSyncListening = true;
+    triggerSubscriptions(subscriptions, subscriptionMutation, pinia2.state.value[$id]);
+  }
+  const $reset = isOptionsStore ? function $reset2() {
+    const { state } = options;
+    const newState = state ? state() : {};
+    this.$patch(($state) => {
+      assign$2($state, newState);
+    });
+  } : (
+    /* istanbul ignore next */
+    () => {
+      throw new Error(`🍍: Store "${$id}" is built using the setup syntax and does not implement $reset().`);
+    }
+  );
+  function $dispose() {
+    scope.stop();
+    subscriptions = [];
+    actionSubscriptions = [];
+    pinia2._s.delete($id);
+  }
+  function wrapAction(name, action) {
+    return function() {
+      setActivePinia(pinia2);
+      const args = Array.from(arguments);
+      const afterCallbackList = [];
+      const onErrorCallbackList = [];
+      function after(callback) {
+        afterCallbackList.push(callback);
+      }
+      function onError(callback) {
+        onErrorCallbackList.push(callback);
+      }
+      triggerSubscriptions(actionSubscriptions, {
+        args,
+        name,
+        store,
+        after,
+        onError
+      });
+      let ret;
+      try {
+        ret = action.apply(this && this.$id === $id ? this : store, args);
+      } catch (error) {
+        triggerSubscriptions(onErrorCallbackList, error);
+        throw error;
+      }
+      if (ret instanceof Promise) {
+        return ret.then((value) => {
+          triggerSubscriptions(afterCallbackList, value);
+          return value;
+        }).catch((error) => {
+          triggerSubscriptions(onErrorCallbackList, error);
+          return Promise.reject(error);
+        });
+      }
+      triggerSubscriptions(afterCallbackList, ret);
+      return ret;
+    };
+  }
+  const _hmrPayload = /* @__PURE__ */ markRaw({
+    actions: {},
+    getters: {},
+    state: [],
+    hotState
+  });
+  const partialStore = {
+    _p: pinia2,
+    // _s: scope,
+    $id,
+    $onAction: addSubscription.bind(null, actionSubscriptions),
+    $patch,
+    $reset,
+    $subscribe(callback, options2 = {}) {
+      const removeSubscription = addSubscription(subscriptions, callback, options2.detached, () => stopWatcher());
+      const stopWatcher = scope.run(() => watch(() => pinia2.state.value[$id], (state) => {
+        if (options2.flush === "sync" ? isSyncListening : isListening) {
+          callback({
+            storeId: $id,
+            type: MutationType.direct,
+            events: debuggerEvents
+          }, state);
+        }
+      }, assign$2({}, $subscribeOptions, options2)));
+      return removeSubscription;
+    },
+    $dispose
+  };
+  const store = reactive(
+    assign$2(
+      {
+        _hmrPayload,
+        _customProperties: markRaw(/* @__PURE__ */ new Set())
+        // devtools custom properties
+      },
+      partialStore
+      // must be added later
+      // setupStore
+    )
+  );
+  pinia2._s.set($id, store);
+  const setupStore = pinia2._e.run(() => {
+    scope = effectScope();
+    return scope.run(() => setup());
+  });
+  for (const key in setupStore) {
+    const prop = setupStore[key];
+    if (isRef(prop) && !isComputed(prop) || isReactive(prop)) {
+      if (hot) {
+        set$1(hotState.value, key, toRef(setupStore, key));
+      } else if (!isOptionsStore) {
+        if (initialState && shouldHydrate(prop)) {
+          if (isRef(prop)) {
+            prop.value = initialState[key];
+          } else {
+            mergeReactiveObjects(prop, initialState[key]);
+          }
+        }
+        {
+          pinia2.state.value[$id][key] = prop;
+        }
+      }
+      {
+        _hmrPayload.state.push(key);
+      }
+    } else if (typeof prop === "function") {
+      const actionValue = hot ? prop : wrapAction(key, prop);
+      {
+        setupStore[key] = actionValue;
+      }
+      {
+        _hmrPayload.actions[key] = prop;
+      }
+      optionsForPlugin.actions[key] = prop;
+    } else {
+      if (isComputed(prop)) {
+        _hmrPayload.getters[key] = isOptionsStore ? (
+          // @ts-expect-error
+          options.getters[key]
+        ) : prop;
+        if (IS_CLIENT) {
+          const getters = setupStore._getters || // @ts-expect-error: same
+          (setupStore._getters = markRaw([]));
+          getters.push(key);
+        }
+      }
+    }
+  }
+  {
+    assign$2(store, setupStore);
+    assign$2(toRaw(store), setupStore);
+  }
+  Object.defineProperty(store, "$state", {
+    get: () => hot ? hotState.value : pinia2.state.value[$id],
+    set: (state) => {
+      if (hot) {
+        throw new Error("cannot set hotState");
+      }
+      $patch(($state) => {
+        assign$2($state, state);
+      });
+    }
+  });
+  {
+    store._hotUpdate = markRaw((newStore) => {
+      store._hotUpdating = true;
+      newStore._hmrPayload.state.forEach((stateKey) => {
+        if (stateKey in store.$state) {
+          const newStateTarget = newStore.$state[stateKey];
+          const oldStateSource = store.$state[stateKey];
+          if (typeof newStateTarget === "object" && isPlainObject(newStateTarget) && isPlainObject(oldStateSource)) {
+            patchObject(newStateTarget, oldStateSource);
+          } else {
+            newStore.$state[stateKey] = oldStateSource;
+          }
+        }
+        set$1(store, stateKey, toRef(newStore.$state, stateKey));
+      });
+      Object.keys(store.$state).forEach((stateKey) => {
+        if (!(stateKey in newStore.$state)) {
+          del(store, stateKey);
+        }
+      });
+      isListening = false;
+      isSyncListening = false;
+      pinia2.state.value[$id] = toRef(newStore._hmrPayload, "hotState");
+      isSyncListening = true;
+      nextTick().then(() => {
+        isListening = true;
+      });
+      for (const actionName in newStore._hmrPayload.actions) {
+        const action = newStore[actionName];
+        set$1(store, actionName, wrapAction(actionName, action));
+      }
+      for (const getterName in newStore._hmrPayload.getters) {
+        const getter = newStore._hmrPayload.getters[getterName];
+        const getterValue = isOptionsStore ? (
+          // special handling of options api
+          computed(() => {
+            setActivePinia(pinia2);
+            return getter.call(store, store);
+          })
+        ) : getter;
+        set$1(store, getterName, getterValue);
+      }
+      Object.keys(store._hmrPayload.getters).forEach((key) => {
+        if (!(key in newStore._hmrPayload.getters)) {
+          del(store, key);
+        }
+      });
+      Object.keys(store._hmrPayload.actions).forEach((key) => {
+        if (!(key in newStore._hmrPayload.actions)) {
+          del(store, key);
+        }
+      });
+      store._hmrPayload = newStore._hmrPayload;
+      store._getters = newStore._getters;
+      store._hotUpdating = false;
+    });
+  }
+  if (USE_DEVTOOLS) {
+    const nonEnumerable = {
+      writable: true,
+      configurable: true,
+      // avoid warning on devtools trying to display this property
+      enumerable: false
+    };
+    ["_p", "_hmrPayload", "_getters", "_customProperties"].forEach((p2) => {
+      Object.defineProperty(store, p2, assign$2({ value: store[p2] }, nonEnumerable));
+    });
+  }
+  pinia2._p.forEach((extender) => {
+    if (USE_DEVTOOLS) {
+      const extensions = scope.run(() => extender({
+        store,
+        app: pinia2._a,
+        pinia: pinia2,
+        options: optionsForPlugin
+      }));
+      Object.keys(extensions || {}).forEach((key) => store._customProperties.add(key));
+      assign$2(store, extensions);
+    } else {
+      assign$2(store, scope.run(() => extender({
+        store,
+        app: pinia2._a,
+        pinia: pinia2,
+        options: optionsForPlugin
+      })));
+    }
+  });
+  if (store.$state && typeof store.$state === "object" && typeof store.$state.constructor === "function" && !store.$state.constructor.toString().includes("[native code]")) {
+    console.warn(`[🍍]: The "state" must be a plain object. It cannot be
+	state: () => new MyClass()
+Found in store "${store.$id}".`);
+  }
+  if (initialState && isOptionsStore && options.hydrate) {
+    options.hydrate(store.$state, initialState);
+  }
+  isListening = true;
+  isSyncListening = true;
+  return store;
+}
+function defineStore(idOrOptions, setup, setupOptions) {
+  let id;
+  let options;
+  const isSetupStore = typeof setup === "function";
+  if (typeof idOrOptions === "string") {
+    id = idOrOptions;
+    options = isSetupStore ? setupOptions : setup;
+  } else {
+    options = idOrOptions;
+    id = idOrOptions.id;
+  }
+  function useStore(pinia2, hot) {
+    const currentInstance2 = getCurrentInstance();
+    pinia2 = // in test mode, ignore the argument provided as we can always retrieve a
+    // pinia instance with getActivePinia()
+    pinia2 || currentInstance2 && inject(piniaSymbol, null);
+    if (pinia2)
+      setActivePinia(pinia2);
+    if (!activePinia) {
+      throw new Error(`[🍍]: getActivePinia was called with no active Pinia. Did you forget to install pinia?
+	const pinia = createPinia()
+	app.use(pinia)
+This will fail in production.`);
+    }
+    pinia2 = activePinia;
+    if (!pinia2._s.has(id)) {
+      if (isSetupStore) {
+        createSetupStore(id, setup, options, pinia2);
+      } else {
+        createOptionsStore(id, options, pinia2);
+      }
+      {
+        useStore._pinia = pinia2;
+      }
+    }
+    const store = pinia2._s.get(id);
+    if (hot) {
+      const hotId = "__hot:" + id;
+      const newStore = isSetupStore ? createSetupStore(hotId, setup, options, pinia2, true) : createOptionsStore(hotId, assign$2({}, options), pinia2, true);
+      hot._hotUpdate(newStore);
+      delete pinia2.state.value[hotId];
+      pinia2._s.delete(hotId);
+    }
+    if (IS_CLIENT && currentInstance2 && currentInstance2.proxy && // avoid adding stores that are just built for hot module replacement
+    !hot) {
+      const vm = currentInstance2.proxy;
+      const cache = "_pStores" in vm ? vm._pStores : vm._pStores = {};
+      cache[id] = store;
+    }
+    return store;
+  }
+  useStore.$id = id;
+  return useStore;
+}
+function storeToRefs(store) {
+  {
+    store = toRaw(store);
+    const refs = {};
+    for (const key in store) {
+      const value = store[key];
+      if (isRef(value) || isReactive(value)) {
+        refs[key] = // ---
+        toRef(store, key);
+      }
+    }
+    return refs;
+  }
+}
+var _a;
+const isClient = typeof window !== "undefined";
+isClient && ((_a = window == null ? void 0 : window.navigator) == null ? void 0 : _a.userAgent) && /iP(ad|hone|od)/.test(window.navigator.userAgent);
+function resolveUnref(r) {
+  return typeof r === "function" ? r() : unref(r);
+}
+function promiseTimeout(ms, throwOnTimeout = false, reason = "Timeout") {
+  return new Promise((resolve, reject) => {
+    if (throwOnTimeout)
+      setTimeout(() => reject(reason), ms);
+    else
+      setTimeout(resolve, ms);
+  });
+}
+function identity(arg) {
+  return arg;
+}
+function containsProp(obj, ...props) {
+  return props.some((k) => k in obj);
+}
+function tryOnScopeDispose(fn) {
+  if (getCurrentScope()) {
+    onScopeDispose(fn);
+    return true;
+  }
+  return false;
+}
+function createEventHook() {
+  const fns = [];
+  const off = (fn) => {
+    const index = fns.indexOf(fn);
+    if (index !== -1)
+      fns.splice(index, 1);
+  };
+  const on = (fn) => {
+    fns.push(fn);
+    const offFn = () => off(fn);
+    tryOnScopeDispose(offFn);
+    return {
+      off: offFn
+    };
+  };
+  const trigger2 = (param) => {
+    fns.forEach((fn) => fn(param));
+  };
+  return {
+    on,
+    off,
+    trigger: trigger2
+  };
+}
+function resolveRef(r) {
+  return typeof r === "function" ? computed(r) : ref(r);
+}
+function set(...args) {
+  if (args.length === 2) {
+    const [ref2, value] = args;
+    ref2.value = value;
+  }
+  if (args.length === 3) {
+    {
+      const [target, key, value] = args;
+      target[key] = value;
+    }
+  }
+}
+function createUntil(r, isNot = false) {
+  function toMatch(condition, { flush = "sync", deep = false, timeout, throwOnTimeout } = {}) {
+    let stop = null;
+    const watcher = new Promise((resolve) => {
+      stop = watch(r, (v) => {
+        if (condition(v) !== isNot) {
+          stop == null ? void 0 : stop();
+          resolve(v);
+        }
+      }, {
+        flush,
+        deep,
+        immediate: true
+      });
+    });
+    const promises = [watcher];
+    if (timeout != null) {
+      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => stop == null ? void 0 : stop()));
+    }
+    return Promise.race(promises);
+  }
+  function toBe(value, options) {
+    if (!isRef(value))
+      return toMatch((v) => v === value, options);
+    const { flush = "sync", deep = false, timeout, throwOnTimeout } = options != null ? options : {};
+    let stop = null;
+    const watcher = new Promise((resolve) => {
+      stop = watch([r, value], ([v1, v2]) => {
+        if (isNot !== (v1 === v2)) {
+          stop == null ? void 0 : stop();
+          resolve(v1);
+        }
+      }, {
+        flush,
+        deep,
+        immediate: true
+      });
+    });
+    const promises = [watcher];
+    if (timeout != null) {
+      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => {
+        stop == null ? void 0 : stop();
+        return resolveUnref(r);
+      }));
+    }
+    return Promise.race(promises);
+  }
+  function toBeTruthy(options) {
+    return toMatch((v) => Boolean(v), options);
+  }
+  function toBeNull(options) {
+    return toBe(null, options);
+  }
+  function toBeUndefined(options) {
+    return toBe(void 0, options);
+  }
+  function toBeNaN(options) {
+    return toMatch(Number.isNaN, options);
+  }
+  function toContains(value, options) {
+    return toMatch((v) => {
+      const array = Array.from(v);
+      return array.includes(value) || array.includes(resolveUnref(value));
+    }, options);
+  }
+  function changed(options) {
+    return changedTimes(1, options);
+  }
+  function changedTimes(n = 1, options) {
+    let count = -1;
+    return toMatch(() => {
+      count += 1;
+      return count >= n;
+    }, options);
+  }
+  if (Array.isArray(resolveUnref(r))) {
+    const instance = {
+      toMatch,
+      toContains,
+      changed,
+      changedTimes,
+      get not() {
+        return createUntil(r, !isNot);
+      }
+    };
+    return instance;
+  } else {
+    const instance = {
+      toMatch,
+      toBe,
+      toBeTruthy,
+      toBeNull,
+      toBeNaN,
+      toBeUndefined,
+      changed,
+      changedTimes,
+      get not() {
+        return createUntil(r, !isNot);
+      }
+    };
+    return instance;
+  }
+}
+function until(r) {
+  return createUntil(r);
+}
+function useTimeoutFn(cb, interval, options = {}) {
+  const {
+    immediate = true
+  } = options;
+  const isPending = ref(false);
+  let timer = null;
+  function clear2() {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+  function stop() {
+    isPending.value = false;
+    clear2();
+  }
+  function start(...args) {
+    clear2();
+    isPending.value = true;
+    timer = setTimeout(() => {
+      isPending.value = false;
+      timer = null;
+      cb(...args);
+    }, resolveUnref(interval));
+  }
+  if (immediate) {
+    isPending.value = true;
+    if (isClient)
+      start();
+  }
+  tryOnScopeDispose(stop);
+  return {
+    isPending: readonly(isPending),
+    start,
+    stop
+  };
+}
+const defaultWindow = isClient ? window : void 0;
+const _global = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof {} !== "undefined" ? {} : typeof self !== "undefined" ? self : {};
+const globalKey = "__vueuse_ssr_handlers__";
+_global[globalKey] = _global[globalKey] || {};
+var __defProp$d = Object.defineProperty;
+var __defProps$3 = Object.defineProperties;
+var __getOwnPropDescs$3 = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols$e = Object.getOwnPropertySymbols;
+var __hasOwnProp$e = Object.prototype.hasOwnProperty;
+var __propIsEnum$e = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$d = (obj, key, value) => key in obj ? __defProp$d(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$d = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$e.call(b, prop))
+      __defNormalProp$d(a, prop, b[prop]);
+  if (__getOwnPropSymbols$e)
+    for (var prop of __getOwnPropSymbols$e(b)) {
+      if (__propIsEnum$e.call(b, prop))
+        __defNormalProp$d(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps$3 = (a, b) => __defProps$3(a, __getOwnPropDescs$3(b));
+const payloadMapping = {
+  json: "application/json",
+  text: "text/plain"
+};
+function isFetchOptions(obj) {
+  return obj && containsProp(obj, "immediate", "refetch", "initialData", "timeout", "beforeFetch", "afterFetch", "onFetchError", "fetch");
+}
+function headersToObject(headers) {
+  if (typeof Headers !== "undefined" && headers instanceof Headers)
+    return Object.fromEntries([...headers.entries()]);
+  return headers;
+}
+function useFetch(url, ...args) {
+  var _a2;
+  const supportsAbort = typeof AbortController === "function";
+  let fetchOptions = {};
+  let options = { immediate: true, refetch: false, timeout: 0 };
+  const config = {
+    method: "GET",
+    type: "text",
+    payload: void 0
+  };
+  if (args.length > 0) {
+    if (isFetchOptions(args[0]))
+      options = __spreadValues$d(__spreadValues$d({}, options), args[0]);
+    else
+      fetchOptions = args[0];
+  }
+  if (args.length > 1) {
+    if (isFetchOptions(args[1]))
+      options = __spreadValues$d(__spreadValues$d({}, options), args[1]);
+  }
+  const {
+    fetch: fetch2 = (_a2 = defaultWindow) == null ? void 0 : _a2.fetch,
+    initialData,
+    timeout
+  } = options;
+  const responseEvent = createEventHook();
+  const errorEvent = createEventHook();
+  const finallyEvent = createEventHook();
+  const isFinished = ref(false);
+  const isFetching = ref(false);
+  const aborted = ref(false);
+  const statusCode = ref(null);
+  const response = shallowRef(null);
+  const error = shallowRef(null);
+  const data = shallowRef(initialData);
+  const canAbort = computed(() => supportsAbort && isFetching.value);
+  let controller;
+  let timer;
+  const abort = () => {
+    if (supportsAbort && controller) {
+      controller.abort();
+      controller = void 0;
+    }
+  };
+  const loading = (isLoading) => {
+    isFetching.value = isLoading;
+    isFinished.value = !isLoading;
+  };
+  if (timeout)
+    timer = useTimeoutFn(abort, timeout, { immediate: false });
+  const execute = async (throwOnFailed = false) => {
+    var _a22;
+    loading(true);
+    error.value = null;
+    statusCode.value = null;
+    aborted.value = false;
+    if (supportsAbort) {
+      abort();
+      controller = new AbortController();
+      controller.signal.onabort = () => aborted.value = true;
+      fetchOptions = __spreadProps$3(__spreadValues$d({}, fetchOptions), {
+        signal: controller.signal
+      });
+    }
+    const defaultFetchOptions = {
+      method: config.method,
+      headers: {}
+    };
+    if (config.payload) {
+      const headers = headersToObject(defaultFetchOptions.headers);
+      if (config.payloadType)
+        headers["Content-Type"] = (_a22 = payloadMapping[config.payloadType]) != null ? _a22 : config.payloadType;
+      const payload = resolveUnref(config.payload);
+      defaultFetchOptions.body = config.payloadType === "json" ? JSON.stringify(payload) : payload;
+    }
+    let isCanceled = false;
+    const context = {
+      url: resolveUnref(url),
+      options: __spreadValues$d(__spreadValues$d({}, defaultFetchOptions), fetchOptions),
+      cancel: () => {
+        isCanceled = true;
+      }
+    };
+    if (options.beforeFetch)
+      Object.assign(context, await options.beforeFetch(context));
+    if (isCanceled || !fetch2) {
+      loading(false);
+      return Promise.resolve(null);
+    }
+    let responseData = null;
+    if (timer)
+      timer.start();
+    return new Promise((resolve, reject) => {
+      var _a3;
+      fetch2(context.url, __spreadProps$3(__spreadValues$d(__spreadValues$d({}, defaultFetchOptions), context.options), {
+        headers: __spreadValues$d(__spreadValues$d({}, headersToObject(defaultFetchOptions.headers)), headersToObject((_a3 = context.options) == null ? void 0 : _a3.headers))
+      })).then(async (fetchResponse) => {
+        response.value = fetchResponse;
+        statusCode.value = fetchResponse.status;
+        responseData = await fetchResponse[config.type]();
+        if (options.afterFetch && statusCode.value >= 200 && statusCode.value < 300)
+          ({ data: responseData } = await options.afterFetch({ data: responseData, response: fetchResponse }));
+        data.value = responseData;
+        if (!fetchResponse.ok)
+          throw new Error(fetchResponse.statusText);
+        responseEvent.trigger(fetchResponse);
+        return resolve(fetchResponse);
+      }).catch(async (fetchError) => {
+        let errorData = fetchError.message || fetchError.name;
+        if (options.onFetchError)
+          ({ data: responseData, error: errorData } = await options.onFetchError({ data: responseData, error: fetchError, response: response.value }));
+        data.value = responseData;
+        error.value = errorData;
+        errorEvent.trigger(fetchError);
+        if (throwOnFailed)
+          return reject(fetchError);
+        return resolve(null);
+      }).finally(() => {
+        loading(false);
+        if (timer)
+          timer.stop();
+        finallyEvent.trigger(null);
+      });
+    });
+  };
+  const refetch = resolveRef(options.refetch);
+  watch([
+    refetch,
+    resolveRef(url)
+  ], ([refetch2]) => refetch2 && execute(), { deep: true });
+  const shell = {
+    isFinished,
+    statusCode,
+    response,
+    error,
+    data,
+    isFetching,
+    canAbort,
+    aborted,
+    abort,
+    execute,
+    onFetchResponse: responseEvent.on,
+    onFetchError: errorEvent.on,
+    onFetchFinally: finallyEvent.on,
+    get: setMethod("GET"),
+    put: setMethod("PUT"),
+    post: setMethod("POST"),
+    delete: setMethod("DELETE"),
+    patch: setMethod("PATCH"),
+    head: setMethod("HEAD"),
+    options: setMethod("OPTIONS"),
+    json: setType("json"),
+    text: setType("text"),
+    blob: setType("blob"),
+    arrayBuffer: setType("arrayBuffer"),
+    formData: setType("formData")
+  };
+  function setMethod(method) {
+    return (payload, payloadType) => {
+      if (!isFetching.value) {
+        config.method = method;
+        config.payload = payload;
+        config.payloadType = payloadType;
+        if (isRef(config.payload)) {
+          watch([
+            refetch,
+            resolveRef(config.payload)
+          ], ([refetch2]) => refetch2 && execute(), { deep: true });
+        }
+        const rawPayload = resolveUnref(config.payload);
+        if (!payloadType && rawPayload && Object.getPrototypeOf(rawPayload) === Object.prototype && !(rawPayload instanceof FormData))
+          config.payloadType = "json";
+        return __spreadProps$3(__spreadValues$d({}, shell), {
+          then(onFulfilled, onRejected) {
+            return waitUntilFinished().then(onFulfilled, onRejected);
+          }
+        });
+      }
+      return void 0;
+    };
+  }
+  function waitUntilFinished() {
+    return new Promise((resolve, reject) => {
+      until(isFinished).toBe(true).then(() => resolve(shell)).catch((error2) => reject(error2));
+    });
+  }
+  function setType(type) {
+    return () => {
+      if (!isFetching.value) {
+        config.type = type;
+        return __spreadProps$3(__spreadValues$d({}, shell), {
+          then(onFulfilled, onRejected) {
+            return waitUntilFinished().then(onFulfilled, onRejected);
+          }
+        });
+      }
+      return void 0;
+    };
+  }
+  if (options.immediate)
+    setTimeout(execute, 0);
+  return __spreadProps$3(__spreadValues$d({}, shell), {
+    then(onFulfilled, onRejected) {
+      return waitUntilFinished().then(onFulfilled, onRejected);
+    }
+  });
+}
+var SwipeDirection;
+(function(SwipeDirection2) {
+  SwipeDirection2["UP"] = "UP";
+  SwipeDirection2["RIGHT"] = "RIGHT";
+  SwipeDirection2["DOWN"] = "DOWN";
+  SwipeDirection2["LEFT"] = "LEFT";
+  SwipeDirection2["NONE"] = "NONE";
+})(SwipeDirection || (SwipeDirection = {}));
+var __defProp = Object.defineProperty;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+const _TransitionPresets = {
+  easeInSine: [0.12, 0, 0.39, 0],
+  easeOutSine: [0.61, 1, 0.88, 1],
+  easeInOutSine: [0.37, 0, 0.63, 1],
+  easeInQuad: [0.11, 0, 0.5, 0],
+  easeOutQuad: [0.5, 1, 0.89, 1],
+  easeInOutQuad: [0.45, 0, 0.55, 1],
+  easeInCubic: [0.32, 0, 0.67, 0],
+  easeOutCubic: [0.33, 1, 0.68, 1],
+  easeInOutCubic: [0.65, 0, 0.35, 1],
+  easeInQuart: [0.5, 0, 0.75, 0],
+  easeOutQuart: [0.25, 1, 0.5, 1],
+  easeInOutQuart: [0.76, 0, 0.24, 1],
+  easeInQuint: [0.64, 0, 0.78, 0],
+  easeOutQuint: [0.22, 1, 0.36, 1],
+  easeInOutQuint: [0.83, 0, 0.17, 1],
+  easeInExpo: [0.7, 0, 0.84, 0],
+  easeOutExpo: [0.16, 1, 0.3, 1],
+  easeInOutExpo: [0.87, 0, 0.13, 1],
+  easeInCirc: [0.55, 0, 1, 0.45],
+  easeOutCirc: [0, 0.55, 0.45, 1],
+  easeInOutCirc: [0.85, 0, 0.15, 1],
+  easeInBack: [0.36, 0, 0.66, -0.56],
+  easeOutBack: [0.34, 1.56, 0.64, 1],
+  easeInOutBack: [0.68, -0.6, 0.32, 1.6]
+};
+__spreadValues({
+  linear: identity
+}, _TransitionPresets);
+const useUserStore = defineStore("user", () => {
+  const username = ref("GiovanniDw");
+  const name = ref("Giovanni");
+  const url = ref(`https://api.github.com/users/${username.value}`);
+  const myData = ref(null);
+  const { isFetching, error, data } = useFetch(url.value).get().json();
+  set(myData, data);
+  console.log(myData);
+  return { username, name, url, data, myData };
+});
 /*!
   * vue-router v4.1.6
   * (c) 2022 Eduardo San Martin Morote
@@ -4746,6 +8780,10 @@ function applyToParams(fn, params) {
 const noop = () => {
 };
 const isArray = Array.isArray;
+function warn(msg) {
+  const args = Array.from(arguments).slice(1);
+  console.warn.apply(console, ["[Vue Router warn]: " + msg].concat(args));
+}
 const TRAILING_SLASH_RE = /\/$/;
 const removeTrailingSlash = (path) => path.replace(TRAILING_SLASH_RE, "");
 function parseURL(parseQuery2, location2, currentLocation = "/") {
@@ -4807,6 +8845,10 @@ function isEquivalentArray(a, b) {
 function resolveRelativePath(to, from) {
   if (to.startsWith("/"))
     return to;
+  if (!from.startsWith("/")) {
+    warn(`Cannot resolve a relative location without an absolute path. Trying to resolve "${to}" from "${from}". It should look like "/${from}".`);
+    return to;
+  }
   if (!to)
     return from;
   const fromSegments = from.split("/");
@@ -4873,8 +8915,23 @@ function scrollToPosition(position) {
   if ("el" in position) {
     const positionEl = position.el;
     const isIdSelector = typeof positionEl === "string" && positionEl.startsWith("#");
+    if (typeof position.el === "string") {
+      if (!isIdSelector || !document.getElementById(position.el.slice(1))) {
+        try {
+          const foundEl = document.querySelector(position.el);
+          if (isIdSelector && foundEl) {
+            warn(`The selector "${position.el}" should be passed as "el: document.querySelector('${position.el}')" because it starts with "#".`);
+            return;
+          }
+        } catch (err) {
+          warn(`The selector "${position.el}" is invalid. If you are using an id selector, make sure to escape it. You can find more information about escaping characters in selectors at https://mathiasbynens.be/notes/css-escapes or use CSS.escape (https://developer.mozilla.org/en-US/docs/Web/API/CSS/escape).`);
+          return;
+        }
+      }
+    }
     const el = typeof positionEl === "string" ? isIdSelector ? document.getElementById(positionEl.slice(1)) : document.querySelector(positionEl) : positionEl;
     if (!el) {
+      warn(`Couldn't find element using selector "${position.el}" returned by scrollBehavior.`);
       return;
     }
     scrollToOptions = getElementPosition(el, position);
@@ -5013,7 +9070,7 @@ function useHistoryStateNavigation(base) {
       historyState.value = state;
     } catch (err) {
       {
-        console.error(err);
+        warn("Error with push/replace State", err);
       }
       location2[replace2 ? "replace" : "assign"](url);
     }
@@ -5042,6 +9099,13 @@ function useHistoryStateNavigation(base) {
         scroll: computeScrollPosition()
       }
     );
+    if (!history2.state) {
+      warn(`history.state seems to have been manually replaced without preserving the necessary values. Make sure to preserve existing history state if you are manually calling history.replaceState:
+
+history.replaceState(history.state, '', url)
+
+You can find more information at https://next.router.vuejs.org/guide/migration/#usage-of-history-state.`);
+    }
     changeLocation(currentState.current, currentState, true);
     const state = assign({}, buildState(currentLocation.value, to, null), { position: currentState.position + 1 }, data);
     changeLocation(to, state, false);
@@ -5097,16 +9161,49 @@ const START_LOCATION_NORMALIZED = {
   meta: {},
   redirectedFrom: void 0
 };
-const NavigationFailureSymbol = Symbol("");
+const NavigationFailureSymbol = Symbol("navigation failure");
 var NavigationFailureType;
 (function(NavigationFailureType2) {
   NavigationFailureType2[NavigationFailureType2["aborted"] = 4] = "aborted";
   NavigationFailureType2[NavigationFailureType2["cancelled"] = 8] = "cancelled";
   NavigationFailureType2[NavigationFailureType2["duplicated"] = 16] = "duplicated";
 })(NavigationFailureType || (NavigationFailureType = {}));
+const ErrorTypeMessages = {
+  [
+    1
+    /* ErrorTypes.MATCHER_NOT_FOUND */
+  ]({ location: location2, currentLocation }) {
+    return `No match for
+ ${JSON.stringify(location2)}${currentLocation ? "\nwhile being at\n" + JSON.stringify(currentLocation) : ""}`;
+  },
+  [
+    2
+    /* ErrorTypes.NAVIGATION_GUARD_REDIRECT */
+  ]({ from, to }) {
+    return `Redirected from "${from.fullPath}" to "${stringifyRoute(to)}" via a navigation guard.`;
+  },
+  [
+    4
+    /* ErrorTypes.NAVIGATION_ABORTED */
+  ]({ from, to }) {
+    return `Navigation aborted from "${from.fullPath}" to "${to.fullPath}" via a navigation guard.`;
+  },
+  [
+    8
+    /* ErrorTypes.NAVIGATION_CANCELLED */
+  ]({ from, to }) {
+    return `Navigation cancelled from "${from.fullPath}" to "${to.fullPath}" with a new navigation.`;
+  },
+  [
+    16
+    /* ErrorTypes.NAVIGATION_DUPLICATED */
+  ]({ from, to }) {
+    return `Avoided redundant navigation to current location: "${from.fullPath}".`;
+  }
+};
 function createRouterError(type, params) {
   {
-    return assign(new Error(), {
+    return assign(new Error(ErrorTypeMessages[type](params)), {
       type,
       [NavigationFailureSymbol]: true
     }, params);
@@ -5114,6 +9211,19 @@ function createRouterError(type, params) {
 }
 function isNavigationFailure(error, type) {
   return error instanceof Error && NavigationFailureSymbol in error && (type == null || !!(error.type & type));
+}
+const propertiesToLog = ["params", "query", "hash"];
+function stringifyRoute(to) {
+  if (typeof to === "string")
+    return to;
+  if ("path" in to)
+    return to.path;
+  const location2 = {};
+  for (const key of propertiesToLog) {
+    if (key in to)
+      location2[key] = to[key];
+  }
+  return JSON.stringify(location2, null, 2);
 }
 const BASE_PARAM_PATTERN = "[^/]+?";
 const BASE_PATH_PARSER_OPTIONS = {
@@ -5292,10 +9402,12 @@ function tokenizePath(path) {
   if (path === "/")
     return [[ROOT_TOKEN]];
   if (!path.startsWith("/")) {
-    throw new Error(`Invalid path "${path}"`);
+    throw new Error(
+      `Route paths should start with a "/": "${path}" should be "/${path}".`
+    );
   }
   function crash(message) {
-    throw new Error(`ERR (${state})/"${buffer}": ${message}`);
+    throw new Error(`ERR (${state})/"${buffer2}": ${message}`);
   }
   let state = 0;
   let previousState = state;
@@ -5308,22 +9420,22 @@ function tokenizePath(path) {
   }
   let i = 0;
   let char;
-  let buffer = "";
+  let buffer2 = "";
   let customRe = "";
   function consumeBuffer() {
-    if (!buffer)
+    if (!buffer2)
       return;
     if (state === 0) {
       segment.push({
         type: 0,
-        value: buffer
+        value: buffer2
       });
     } else if (state === 1 || state === 2 || state === 3) {
       if (segment.length > 1 && (char === "*" || char === "+"))
-        crash(`A repeatable param (${buffer}) must be alone in its segment. eg: '/:ids+.`);
+        crash(`A repeatable param (${buffer2}) must be alone in its segment. eg: '/:ids+.`);
       segment.push({
         type: 1,
-        value: buffer,
+        value: buffer2,
         regexp: customRe,
         repeatable: char === "*" || char === "+",
         optional: char === "*" || char === "?"
@@ -5331,10 +9443,10 @@ function tokenizePath(path) {
     } else {
       crash("Invalid state to consume buffer");
     }
-    buffer = "";
+    buffer2 = "";
   }
   function addCharToBuffer() {
-    buffer += char;
+    buffer2 += char;
   }
   while (i < path.length) {
     char = path[i++];
@@ -5346,7 +9458,7 @@ function tokenizePath(path) {
     switch (state) {
       case 0:
         if (char === "/") {
-          if (buffer) {
+          if (buffer2) {
             consumeBuffer();
           }
           finalizeSegment();
@@ -5396,13 +9508,21 @@ function tokenizePath(path) {
     }
   }
   if (state === 2)
-    crash(`Unfinished custom RegExp for param "${buffer}"`);
+    crash(`Unfinished custom RegExp for param "${buffer2}"`);
   consumeBuffer();
   finalizeSegment();
   return tokens;
 }
 function createRouteRecordMatcher(record, parent, options) {
   const parser = tokensToParser(tokenizePath(record.path), options);
+  {
+    const existingKeys = /* @__PURE__ */ new Set();
+    for (const key of parser.keys) {
+      if (existingKeys.has(key.name))
+        warn(`Found duplicated params with name "${key.name}" for path "${record.path}". Only the last one will be available on "$route.params".`);
+      existingKeys.add(key.name);
+    }
+  }
   const matcher = assign(parser, {
     record,
     parent,
@@ -5426,6 +9546,9 @@ function createRouterMatcher(routes, globalOptions) {
   function addRoute(record, parent, originalRecord) {
     const isRootAdd = !originalRecord;
     const mainNormalizedRecord = normalizeRouteRecord(record);
+    {
+      checkChildMissingNameWithEmptyPath(mainNormalizedRecord, parent);
+    }
     mainNormalizedRecord.aliasOf = originalRecord && originalRecord.record;
     const options = mergeOptions(globalOptions, record);
     const normalizedRecords = [
@@ -5455,9 +9578,17 @@ function createRouterMatcher(routes, globalOptions) {
         const connectingSlash = parentPath[parentPath.length - 1] === "/" ? "" : "/";
         normalizedRecord.path = parent.record.path + (path && connectingSlash + path);
       }
+      if (normalizedRecord.path === "*") {
+        throw new Error('Catch all routes ("*") must now be defined using a param with a custom regexp.\nSee more at https://next.router.vuejs.org/guide/migration/#removed-star-or-catch-all-routes.');
+      }
       matcher = createRouteRecordMatcher(normalizedRecord, parent, options);
+      if (parent && path[0] === "/")
+        checkMissingParamsInAbsolutePath(matcher, parent);
       if (originalRecord) {
         originalRecord.alias.push(matcher);
+        {
+          checkSameParams(originalRecord, matcher);
+        }
       } else {
         originalMatcher = originalMatcher || matcher;
         if (originalMatcher !== matcher)
@@ -5524,6 +9655,12 @@ function createRouterMatcher(routes, globalOptions) {
         throw createRouterError(1, {
           location: location2
         });
+      {
+        const invalidParams = Object.keys(location2.params || {}).filter((paramName) => !matcher.keys.find((k) => k.name === paramName));
+        if (invalidParams.length) {
+          warn(`Discarded invalid param(s) "${invalidParams.join('", "')}" when navigating. See https://github.com/vuejs/router/blob/main/packages/router/CHANGELOG.md#414-2022-08-22 for more details.`);
+        }
+      }
       name = matcher.record.name;
       params = assign(
         // paramsFromLocation is a new object
@@ -5540,6 +9677,9 @@ function createRouterMatcher(routes, globalOptions) {
       path = matcher.stringify(params);
     } else if ("path" in location2) {
       path = location2.path;
+      if (!path.startsWith("/")) {
+        warn(`The Matcher cannot resolve relative paths but received "${path}". Unless you directly called \`matcher.resolve("${path}")\`, this is probably a bug in vue-router. Please open an issue at https://new-issue.vuejs.org/?repo=vuejs/router.`);
+      }
       matcher = matchers.find((m) => m.re.test(path));
       if (matcher) {
         params = matcher.parse(path);
@@ -5627,6 +9767,30 @@ function mergeOptions(defaults, partialOptions) {
   }
   return options;
 }
+function isSameParam(a, b) {
+  return a.name === b.name && a.optional === b.optional && a.repeatable === b.repeatable;
+}
+function checkSameParams(a, b) {
+  for (const key of a.keys) {
+    if (!key.optional && !b.keys.find(isSameParam.bind(null, key)))
+      return warn(`Alias "${b.record.path}" and the original record: "${a.record.path}" must have the exact same param named "${key.name}"`);
+  }
+  for (const key of b.keys) {
+    if (!key.optional && !a.keys.find(isSameParam.bind(null, key)))
+      return warn(`Alias "${b.record.path}" and the original record: "${a.record.path}" must have the exact same param named "${key.name}"`);
+  }
+}
+function checkChildMissingNameWithEmptyPath(mainNormalizedRecord, parent) {
+  if (parent && parent.record.name && !mainNormalizedRecord.name && !mainNormalizedRecord.path) {
+    warn(`The route named "${String(parent.record.name)}" has a child without a name and an empty path. Using that name won't render the empty path child so you probably want to move the name to the child instead. If this is intentional, add a name to the child route to remove the warning.`);
+  }
+}
+function checkMissingParamsInAbsolutePath(record, parent) {
+  for (const key of parent.keys) {
+    if (!record.keys.find(isSameParam.bind(null, key)))
+      return warn(`Absolute path "${record.record.path}" must have the exact same param named "${key.name}" as its parent "${parent.record.path}".`);
+  }
+}
 function isRecordChildOf(record, parent) {
   return parent.children.some((child) => child === record || isRecordChildOf(record, child));
 }
@@ -5666,6 +9830,7 @@ function decode(text) {
   try {
     return decodeURIComponent("" + text);
   } catch (err) {
+    warn(`Error decoding "${text}". Using original value`);
   }
   return "" + text;
 }
@@ -5724,11 +9889,11 @@ function normalizeQuery(query) {
   }
   return normalizedQuery;
 }
-const matchedRouteKey = Symbol("");
-const viewDepthKey = Symbol("");
-const routerKey = Symbol("");
-const routeLocationKey = Symbol("");
-const routerViewLocationKey = Symbol("");
+const matchedRouteKey = Symbol("router view location matched");
+const viewDepthKey = Symbol("router view depth");
+const routerKey = Symbol("router");
+const routeLocationKey = Symbol("route location");
+const routerViewLocationKey = Symbol("router view location");
 function useCallbacks() {
   let handlers = [];
   function add2(handler) {
@@ -5773,18 +9938,65 @@ function guardToPromiseFn(guard, to, from, record, name) {
         resolve();
       }
     };
-    const guardReturn = guard.call(record && record.instances[name], to, from, next);
+    const guardReturn = guard.call(record && record.instances[name], to, from, canOnlyBeCalledOnce(next, to, from));
     let guardCall = Promise.resolve(guardReturn);
     if (guard.length < 3)
       guardCall = guardCall.then(next);
+    if (guard.length > 2) {
+      const message = `The "next" callback was never called inside of ${guard.name ? '"' + guard.name + '"' : ""}:
+${guard.toString()}
+. If you are returning a value instead of calling "next", make sure to remove the "next" parameter from your function.`;
+      if (typeof guardReturn === "object" && "then" in guardReturn) {
+        guardCall = guardCall.then((resolvedValue) => {
+          if (!next._called) {
+            warn(message);
+            return Promise.reject(new Error("Invalid navigation guard"));
+          }
+          return resolvedValue;
+        });
+      } else if (guardReturn !== void 0) {
+        if (!next._called) {
+          warn(message);
+          reject(new Error("Invalid navigation guard"));
+          return;
+        }
+      }
+    }
     guardCall.catch((err) => reject(err));
   });
+}
+function canOnlyBeCalledOnce(next, to, from) {
+  let called = 0;
+  return function() {
+    if (called++ === 1)
+      warn(`The "next" callback was called more than once in one navigation guard when going from "${from.fullPath}" to "${to.fullPath}". It should be called exactly one time in each navigation guard. This will fail in production.`);
+    next._called = true;
+    if (called === 1)
+      next.apply(null, arguments);
+  };
 }
 function extractComponentsGuards(matched, guardType, to, from) {
   const guards = [];
   for (const record of matched) {
+    if (!record.components && !record.children.length) {
+      warn(`Record with path "${record.path}" is either missing a "component(s)" or "children" property.`);
+    }
     for (const name in record.components) {
       let rawComponent = record.components[name];
+      {
+        if (!rawComponent || typeof rawComponent !== "object" && typeof rawComponent !== "function") {
+          warn(`Component "${name}" in record with path "${record.path}" is not a valid component. Received "${String(rawComponent)}".`);
+          throw new Error("Invalid route component");
+        } else if ("then" in rawComponent) {
+          warn(`Component "${name}" in record with path "${record.path}" is a Promise instead of a function that returns a Promise. Did you write "import('./MyPage.vue')" instead of "() => import('./MyPage.vue')" ? This will break in production if not fixed.`);
+          const promise = rawComponent;
+          rawComponent = () => promise;
+        } else if (rawComponent.__asyncLoader && // warn only once per component
+        !rawComponent.__warnedDefineAsync) {
+          rawComponent.__warnedDefineAsync = true;
+          warn(`Component "${name}" in record with path "${record.path}" is defined using "defineAsyncComponent()". Write "() => import('./MyPage.vue')" instead of "defineAsyncComponent(() => import('./MyPage.vue'))".`);
+        }
+      }
       if (guardType !== "beforeRouteEnter" && !record.instances[name])
         continue;
       if (isRouteComponent(rawComponent)) {
@@ -5793,6 +10005,10 @@ function extractComponentsGuards(matched, guardType, to, from) {
         guard && guards.push(guardToPromiseFn(guard, to, from, record, name));
       } else {
         let componentPromise = rawComponent();
+        if (!("catch" in componentPromise)) {
+          warn(`Component "${name}" in record with path "${record.path}" is a function that does not return a Promise. If you were passing a functional component, make sure to add a "displayName" to the component. This will break in production if not fixed.`);
+          componentPromise = Promise.resolve(componentPromise);
+        }
         guards.push(() => componentPromise.then((resolved) => {
           if (!resolved)
             return Promise.reject(new Error(`Couldn't resolve component "${name}" at "${record.path}"`));
@@ -5844,6 +10060,23 @@ function useLink(props) {
       ).catch(noop);
     }
     return Promise.resolve();
+  }
+  if (isBrowser) {
+    const instance = getCurrentInstance();
+    if (instance) {
+      const linkContextDevtools = {
+        route: route.value,
+        isActive: isActive.value,
+        isExactActive: isExactActive.value
+      };
+      instance.__vrl_devtools = instance.__vrl_devtools || [];
+      instance.__vrl_devtools.push(linkContextDevtools);
+      watchEffect(() => {
+        linkContextDevtools.route = route.value;
+        linkContextDevtools.isActive = isActive.value;
+        linkContextDevtools.isExactActive = isExactActive.value;
+      }, { flush: "post" });
+    }
   }
   return {
     route,
@@ -5947,6 +10180,7 @@ const RouterViewImpl = /* @__PURE__ */ defineComponent({
   // https://github.com/vuejs/router/issues/1315
   compatConfig: { MODE: 3 },
   setup(props, { attrs, slots }) {
+    warnDeprecatedUsage();
     const injectedRoute = inject(routerViewLocationKey);
     const routeToDisplay = computed(() => props.route || injectedRoute.value);
     const injectedDepth = inject(viewDepthKey, 0);
@@ -6001,6 +10235,18 @@ const RouterViewImpl = /* @__PURE__ */ defineComponent({
         onVnodeUnmounted,
         ref: viewRef
       }));
+      if (isBrowser && component.ref) {
+        const info = {
+          depth: depth.value,
+          name: matchedRoute.name,
+          path: matchedRoute.path,
+          meta: matchedRoute.meta
+        };
+        const internalInstances = isArray(component.ref) ? component.ref.map((r) => r.i) : [component.ref.i];
+        internalInstances.forEach((instance) => {
+          instance.__vrv_devtools = info;
+        });
+      }
       return (
         // pass the vnode to the slot as a prop.
         // h and <component :is="..."> both accept vnodes
@@ -6016,11 +10262,413 @@ function normalizeSlot(slot, data) {
   return slotContent.length === 1 ? slotContent[0] : slotContent;
 }
 const RouterView = RouterViewImpl;
+function warnDeprecatedUsage() {
+  const instance = getCurrentInstance();
+  const parentName = instance.parent && instance.parent.type.name;
+  if (parentName && (parentName === "KeepAlive" || parentName.includes("Transition"))) {
+    const comp = parentName === "KeepAlive" ? "keep-alive" : "transition";
+    warn(`<router-view> can no longer be used directly inside <transition> or <keep-alive>.
+Use slot props instead:
+
+<router-view v-slot="{ Component }">
+  <${comp}>
+    <component :is="Component" />
+  </${comp}>
+</router-view>`);
+  }
+}
+function formatRouteLocation(routeLocation, tooltip) {
+  const copy = assign({}, routeLocation, {
+    // remove variables that can contain vue instances
+    matched: routeLocation.matched.map((matched) => omit(matched, ["instances", "children", "aliasOf"]))
+  });
+  return {
+    _custom: {
+      type: null,
+      readOnly: true,
+      display: routeLocation.fullPath,
+      tooltip,
+      value: copy
+    }
+  };
+}
+function formatDisplay(display) {
+  return {
+    _custom: {
+      display
+    }
+  };
+}
+let routerId = 0;
+function addDevtools(app2, router2, matcher) {
+  if (router2.__hasDevtools)
+    return;
+  router2.__hasDevtools = true;
+  const id = routerId++;
+  setupDevtoolsPlugin({
+    id: "org.vuejs.router" + (id ? "." + id : ""),
+    label: "Vue Router",
+    packageName: "vue-router",
+    homepage: "https://router.vuejs.org",
+    logo: "https://router.vuejs.org/logo.png",
+    componentStateTypes: ["Routing"],
+    app: app2
+  }, (api) => {
+    if (typeof api.now !== "function") {
+      console.warn("[Vue Router]: You seem to be using an outdated version of Vue Devtools. Are you still using the Beta release instead of the stable one? You can find the links at https://devtools.vuejs.org/guide/installation.html.");
+    }
+    api.on.inspectComponent((payload, ctx) => {
+      if (payload.instanceData) {
+        payload.instanceData.state.push({
+          type: "Routing",
+          key: "$route",
+          editable: false,
+          value: formatRouteLocation(router2.currentRoute.value, "Current Route")
+        });
+      }
+    });
+    api.on.visitComponentTree(({ treeNode: node, componentInstance }) => {
+      if (componentInstance.__vrv_devtools) {
+        const info = componentInstance.__vrv_devtools;
+        node.tags.push({
+          label: (info.name ? `${info.name.toString()}: ` : "") + info.path,
+          textColor: 0,
+          tooltip: "This component is rendered by &lt;router-view&gt;",
+          backgroundColor: PINK_500
+        });
+      }
+      if (isArray(componentInstance.__vrl_devtools)) {
+        componentInstance.__devtoolsApi = api;
+        componentInstance.__vrl_devtools.forEach((devtoolsData) => {
+          let backgroundColor = ORANGE_400;
+          let tooltip = "";
+          if (devtoolsData.isExactActive) {
+            backgroundColor = LIME_500;
+            tooltip = "This is exactly active";
+          } else if (devtoolsData.isActive) {
+            backgroundColor = BLUE_600;
+            tooltip = "This link is active";
+          }
+          node.tags.push({
+            label: devtoolsData.route.path,
+            textColor: 0,
+            tooltip,
+            backgroundColor
+          });
+        });
+      }
+    });
+    watch(router2.currentRoute, () => {
+      refreshRoutesView();
+      api.notifyComponentUpdate();
+      api.sendInspectorTree(routerInspectorId);
+      api.sendInspectorState(routerInspectorId);
+    });
+    const navigationsLayerId = "router:navigations:" + id;
+    api.addTimelineLayer({
+      id: navigationsLayerId,
+      label: `Router${id ? " " + id : ""} Navigations`,
+      color: 4237508
+    });
+    router2.onError((error, to) => {
+      api.addTimelineEvent({
+        layerId: navigationsLayerId,
+        event: {
+          title: "Error during Navigation",
+          subtitle: to.fullPath,
+          logType: "error",
+          time: api.now(),
+          data: { error },
+          groupId: to.meta.__navigationId
+        }
+      });
+    });
+    let navigationId = 0;
+    router2.beforeEach((to, from) => {
+      const data = {
+        guard: formatDisplay("beforeEach"),
+        from: formatRouteLocation(from, "Current Location during this navigation"),
+        to: formatRouteLocation(to, "Target location")
+      };
+      Object.defineProperty(to.meta, "__navigationId", {
+        value: navigationId++
+      });
+      api.addTimelineEvent({
+        layerId: navigationsLayerId,
+        event: {
+          time: api.now(),
+          title: "Start of navigation",
+          subtitle: to.fullPath,
+          data,
+          groupId: to.meta.__navigationId
+        }
+      });
+    });
+    router2.afterEach((to, from, failure) => {
+      const data = {
+        guard: formatDisplay("afterEach")
+      };
+      if (failure) {
+        data.failure = {
+          _custom: {
+            type: Error,
+            readOnly: true,
+            display: failure ? failure.message : "",
+            tooltip: "Navigation Failure",
+            value: failure
+          }
+        };
+        data.status = formatDisplay("❌");
+      } else {
+        data.status = formatDisplay("✅");
+      }
+      data.from = formatRouteLocation(from, "Current Location during this navigation");
+      data.to = formatRouteLocation(to, "Target location");
+      api.addTimelineEvent({
+        layerId: navigationsLayerId,
+        event: {
+          title: "End of navigation",
+          subtitle: to.fullPath,
+          time: api.now(),
+          data,
+          logType: failure ? "warning" : "default",
+          groupId: to.meta.__navigationId
+        }
+      });
+    });
+    const routerInspectorId = "router-inspector:" + id;
+    api.addInspector({
+      id: routerInspectorId,
+      label: "Routes" + (id ? " " + id : ""),
+      icon: "book",
+      treeFilterPlaceholder: "Search routes"
+    });
+    function refreshRoutesView() {
+      if (!activeRoutesPayload)
+        return;
+      const payload = activeRoutesPayload;
+      let routes = matcher.getRoutes().filter((route) => !route.parent);
+      routes.forEach(resetMatchStateOnRouteRecord);
+      if (payload.filter) {
+        routes = routes.filter((route) => (
+          // save matches state based on the payload
+          isRouteMatching(route, payload.filter.toLowerCase())
+        ));
+      }
+      routes.forEach((route) => markRouteRecordActive(route, router2.currentRoute.value));
+      payload.rootNodes = routes.map(formatRouteRecordForInspector);
+    }
+    let activeRoutesPayload;
+    api.on.getInspectorTree((payload) => {
+      activeRoutesPayload = payload;
+      if (payload.app === app2 && payload.inspectorId === routerInspectorId) {
+        refreshRoutesView();
+      }
+    });
+    api.on.getInspectorState((payload) => {
+      if (payload.app === app2 && payload.inspectorId === routerInspectorId) {
+        const routes = matcher.getRoutes();
+        const route = routes.find((route2) => route2.record.__vd_id === payload.nodeId);
+        if (route) {
+          payload.state = {
+            options: formatRouteRecordMatcherForStateInspector(route)
+          };
+        }
+      }
+    });
+    api.sendInspectorTree(routerInspectorId);
+    api.sendInspectorState(routerInspectorId);
+  });
+}
+function modifierForKey(key) {
+  if (key.optional) {
+    return key.repeatable ? "*" : "?";
+  } else {
+    return key.repeatable ? "+" : "";
+  }
+}
+function formatRouteRecordMatcherForStateInspector(route) {
+  const { record } = route;
+  const fields = [
+    { editable: false, key: "path", value: record.path }
+  ];
+  if (record.name != null) {
+    fields.push({
+      editable: false,
+      key: "name",
+      value: record.name
+    });
+  }
+  fields.push({ editable: false, key: "regexp", value: route.re });
+  if (route.keys.length) {
+    fields.push({
+      editable: false,
+      key: "keys",
+      value: {
+        _custom: {
+          type: null,
+          readOnly: true,
+          display: route.keys.map((key) => `${key.name}${modifierForKey(key)}`).join(" "),
+          tooltip: "Param keys",
+          value: route.keys
+        }
+      }
+    });
+  }
+  if (record.redirect != null) {
+    fields.push({
+      editable: false,
+      key: "redirect",
+      value: record.redirect
+    });
+  }
+  if (route.alias.length) {
+    fields.push({
+      editable: false,
+      key: "aliases",
+      value: route.alias.map((alias) => alias.record.path)
+    });
+  }
+  if (Object.keys(route.record.meta).length) {
+    fields.push({
+      editable: false,
+      key: "meta",
+      value: route.record.meta
+    });
+  }
+  fields.push({
+    key: "score",
+    editable: false,
+    value: {
+      _custom: {
+        type: null,
+        readOnly: true,
+        display: route.score.map((score) => score.join(", ")).join(" | "),
+        tooltip: "Score used to sort routes",
+        value: route.score
+      }
+    }
+  });
+  return fields;
+}
+const PINK_500 = 15485081;
+const BLUE_600 = 2450411;
+const LIME_500 = 8702998;
+const CYAN_400 = 2282478;
+const ORANGE_400 = 16486972;
+const DARK = 6710886;
+function formatRouteRecordForInspector(route) {
+  const tags = [];
+  const { record } = route;
+  if (record.name != null) {
+    tags.push({
+      label: String(record.name),
+      textColor: 0,
+      backgroundColor: CYAN_400
+    });
+  }
+  if (record.aliasOf) {
+    tags.push({
+      label: "alias",
+      textColor: 0,
+      backgroundColor: ORANGE_400
+    });
+  }
+  if (route.__vd_match) {
+    tags.push({
+      label: "matches",
+      textColor: 0,
+      backgroundColor: PINK_500
+    });
+  }
+  if (route.__vd_exactActive) {
+    tags.push({
+      label: "exact",
+      textColor: 0,
+      backgroundColor: LIME_500
+    });
+  }
+  if (route.__vd_active) {
+    tags.push({
+      label: "active",
+      textColor: 0,
+      backgroundColor: BLUE_600
+    });
+  }
+  if (record.redirect) {
+    tags.push({
+      label: typeof record.redirect === "string" ? `redirect: ${record.redirect}` : "redirects",
+      textColor: 16777215,
+      backgroundColor: DARK
+    });
+  }
+  let id = record.__vd_id;
+  if (id == null) {
+    id = String(routeRecordId++);
+    record.__vd_id = id;
+  }
+  return {
+    id,
+    label: record.path,
+    tags,
+    children: route.children.map(formatRouteRecordForInspector)
+  };
+}
+let routeRecordId = 0;
+const EXTRACT_REGEXP_RE = /^\/(.*)\/([a-z]*)$/;
+function markRouteRecordActive(route, currentRoute) {
+  const isExactActive = currentRoute.matched.length && isSameRouteRecord(currentRoute.matched[currentRoute.matched.length - 1], route.record);
+  route.__vd_exactActive = route.__vd_active = isExactActive;
+  if (!isExactActive) {
+    route.__vd_active = currentRoute.matched.some((match) => isSameRouteRecord(match, route.record));
+  }
+  route.children.forEach((childRoute) => markRouteRecordActive(childRoute, currentRoute));
+}
+function resetMatchStateOnRouteRecord(route) {
+  route.__vd_match = false;
+  route.children.forEach(resetMatchStateOnRouteRecord);
+}
+function isRouteMatching(route, filter) {
+  const found = String(route.re).match(EXTRACT_REGEXP_RE);
+  route.__vd_match = false;
+  if (!found || found.length < 3) {
+    return false;
+  }
+  const nonEndingRE = new RegExp(found[1].replace(/\$$/, ""), found[2]);
+  if (nonEndingRE.test(filter)) {
+    route.children.forEach((child) => isRouteMatching(child, filter));
+    if (route.record.path !== "/" || filter === "/") {
+      route.__vd_match = route.re.test(filter);
+      return true;
+    }
+    return false;
+  }
+  const path = route.record.path.toLowerCase();
+  const decodedPath = decode(path);
+  if (!filter.startsWith("/") && (decodedPath.includes(filter) || path.includes(filter)))
+    return true;
+  if (decodedPath.startsWith(filter) || path.startsWith(filter))
+    return true;
+  if (route.record.name && String(route.record.name).includes(filter))
+    return true;
+  return route.children.some((child) => isRouteMatching(child, filter));
+}
+function omit(obj, keys) {
+  const ret = {};
+  for (const key in obj) {
+    if (!keys.includes(key)) {
+      ret[key] = obj[key];
+    }
+  }
+  return ret;
+}
 function createRouter(options) {
   const matcher = createRouterMatcher(options.routes, options);
   const parseQuery$1 = options.parseQuery || parseQuery;
   const stringifyQuery$1 = options.stringifyQuery || stringifyQuery;
   const routerHistory = options.history;
+  if (!routerHistory)
+    throw new Error('Provide the "history" option when calling "createRouter()": https://next.router.vuejs.org/api/#history.');
   const beforeGuards = useCallbacks();
   const beforeResolveGuards = useCallbacks();
   const afterGuards = useCallbacks();
@@ -6050,6 +10698,8 @@ function createRouter(options) {
     const recordMatcher = matcher.getRecordMatcher(name);
     if (recordMatcher) {
       matcher.removeRoute(recordMatcher);
+    } else {
+      warn(`Cannot remove non-existent route "${String(name)}"`);
     }
   }
   function getRoutes() {
@@ -6064,6 +10714,13 @@ function createRouter(options) {
       const locationNormalized = parseURL(parseQuery$1, rawLocation, currentLocation.path);
       const matchedRoute2 = matcher.resolve({ path: locationNormalized.path }, currentLocation);
       const href2 = routerHistory.createHref(locationNormalized.fullPath);
+      {
+        if (href2.startsWith("//"))
+          warn(`Location "${rawLocation}" resolved to "${href2}". A resolved location cannot start with multiple slashes.`);
+        else if (!matchedRoute2.matched.length) {
+          warn(`No match found for location with path "${rawLocation}"`);
+        }
+      }
       return assign(locationNormalized, matchedRoute2, {
         params: decodeParams(matchedRoute2.params),
         hash: decode(locationNormalized.hash),
@@ -6073,6 +10730,11 @@ function createRouter(options) {
     }
     let matcherLocation;
     if ("path" in rawLocation) {
+      if ("params" in rawLocation && !("name" in rawLocation) && // @ts-expect-error: the type is never
+      Object.keys(rawLocation.params).length) {
+        warn(`Path "${// @ts-expect-error: the type is never
+        rawLocation.path}" was passed with params but they will be ignored. Use a named route alongside params instead.`);
+      }
       matcherLocation = assign({}, rawLocation, {
         path: parseURL(parseQuery$1, rawLocation.path, currentLocation.path).path
       });
@@ -6090,12 +10752,22 @@ function createRouter(options) {
     }
     const matchedRoute = matcher.resolve(matcherLocation, currentLocation);
     const hash = rawLocation.hash || "";
+    if (hash && !hash.startsWith("#")) {
+      warn(`A \`hash\` should always start with the character "#". Replace "${hash}" with "#${hash}".`);
+    }
     matchedRoute.params = normalizeParams(decodeParams(matchedRoute.params));
     const fullPath = stringifyURL(stringifyQuery$1, assign({}, rawLocation, {
       hash: encodeHash(hash),
       path: matchedRoute.path
     }));
     const href = routerHistory.createHref(fullPath);
+    {
+      if (href.startsWith("//")) {
+        warn(`Location "${rawLocation}" resolved to "${href}". A resolved location cannot start with multiple slashes.`);
+      } else if (!matchedRoute.matched.length) {
+        warn(`No match found for location with path "${"path" in rawLocation ? rawLocation.path : rawLocation}"`);
+      }
+    }
     return assign({
       fullPath,
       // keep the hash encoded so fullPath is effectively path + encodedQuery +
@@ -6142,6 +10814,12 @@ function createRouter(options) {
           { path: newTargetLocation }
         );
         newTargetLocation.params = {};
+      }
+      if (!("path" in newTargetLocation) && !("name" in newTargetLocation)) {
+        warn(`Invalid redirect found:
+${JSON.stringify(newTargetLocation, null, 2)}
+ when navigating to "${to.fullPath}". A redirect must contain a name or path. This will break in production.`);
+        throw new Error("Invalid redirect");
       }
       return assign({
         query: to.query,
@@ -6201,6 +10879,18 @@ function createRouter(options) {
           2
           /* ErrorTypes.NAVIGATION_GUARD_REDIRECT */
         )) {
+          if (
+            // we are redirecting to the same location we were already at
+            isSameRouteLocation(stringifyQuery$1, resolve(failure2.to), toLocation) && // and we have done it a couple of times
+            redirectedFrom && // @ts-expect-error: added only in dev
+            (redirectedFrom._count = redirectedFrom._count ? (
+              // @ts-expect-error
+              redirectedFrom._count + 1
+            ) : 1) > 10
+          ) {
+            warn(`Detected an infinite redirection in a navigation guard when going from "${from.fullPath}" to "${toLocation.fullPath}". Aborting to avoid a Stack Overflow. This will break in production if not fixed.`);
+            return Promise.reject(new Error("Infinite redirect in navigation guard"));
+          }
           return pushWithRedirect(
             // keep options
             assign({
@@ -6393,6 +11083,9 @@ function createRouter(options) {
     if (list.length) {
       list.forEach((handler) => handler(error, to, from));
     } else {
+      {
+        warn("uncaught error during route navigation:");
+      }
       console.error(error);
     }
     return Promise.reject(error);
@@ -6456,6 +11149,7 @@ function createRouter(options) {
       !started && currentRoute.value === START_LOCATION_NORMALIZED) {
         started = true;
         push(routerHistory.location).catch((err) => {
+          warn("Unexpected error when starting the router:", err);
         });
       }
       const reactiveRoute = {};
@@ -6479,6 +11173,9 @@ function createRouter(options) {
         }
         unmountApp();
       };
+      if (isBrowser) {
+        addDevtools(app2, router3, matcher);
+      }
     }
   };
   return router2;
@@ -6508,7 +11205,7 @@ function extractChangingRecords(to, from) {
   }
   return [leavingRecords, updatingRecords, enteringRecords];
 }
-const App_vue_vue_type_style_index_0_scoped_f30448d3_lang = "";
+const App_vue_vue_type_style_index_0_scoped_7a7a37b1_lang = "";
 const _export_sfc = (sfc, props) => {
   const target = sfc.__vccOpts || sfc;
   for (const [key, val] of props) {
@@ -6516,39 +11213,54 @@ const _export_sfc = (sfc, props) => {
   }
   return target;
 };
-const _sfc_main$3 = {
+const _sfc_main$2 = {
   __name: "App",
   setup(__props) {
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock(Fragment, null, [
-        createBaseVNode("header", null, [
-          createVNode(unref(RouterLink), { to: "/" }, {
+      return openBlock(), createElementBlock(
+        Fragment,
+        null,
+        [
+          createBaseVNode("header", null, [
+            createVNode(unref(RouterLink), { to: "/" }, {
+              default: withCtx(() => [
+                createTextVNode("{GiovanniDw}")
+              ]),
+              _: 1
+              /* STABLE */
+            }),
+            createBaseVNode("nav", null, [
+              createVNode(unref(RouterLink), { to: "/projects" }, {
+                default: withCtx(() => [
+                  createTextVNode("Projects")
+                ]),
+                _: 1
+                /* STABLE */
+              }),
+              createVNode(unref(RouterLink), { to: "/about" }, {
+                default: withCtx(() => [
+                  createTextVNode("About Me")
+                ]),
+                _: 1
+                /* STABLE */
+              })
+            ])
+          ]),
+          (openBlock(), createBlock(Suspense, null, {
             default: withCtx(() => [
-              createTextVNode("{GiovanniDw}")
+              createVNode(unref(RouterView))
             ]),
             _: 1
-          }),
-          createBaseVNode("nav", null, [
-            createVNode(unref(RouterLink), { to: "/projects" }, {
-              default: withCtx(() => [
-                createTextVNode("Projects")
-              ]),
-              _: 1
-            }),
-            createVNode(unref(RouterLink), { to: "/about" }, {
-              default: withCtx(() => [
-                createTextVNode("About Me")
-              ]),
-              _: 1
-            })
-          ])
-        ]),
-        createVNode(unref(RouterView))
-      ], 64);
+            /* STABLE */
+          }))
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      );
     };
   }
 };
-const App = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["__scopeId", "data-v-f30448d3"]]);
+const App = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-7a7a37b1"], ["__file", "/Users/Giovanni/Developer/PortfolioWebDev/src/App.vue"]]);
 const scriptRel = "modulepreload";
 const assetsURL = function(dep) {
   return "/PortfolioWebDev/" + dep;
@@ -6593,62 +11305,72 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
     }
   })).then(() => baseModule());
 };
-const _sfc_main$2 = {};
-const _hoisted_1$1 = {
-  xmlns: "http://www.w3.org/2000/svg",
-  width: "20",
-  height: "20",
-  fill: "currentColor"
-};
-const _hoisted_2$1 = /* @__PURE__ */ createBaseVNode("path", { d: "M15 4a1 1 0 1 0 0 2V4zm0 11v-1a1 1 0 0 0-1 1h1zm0 4l-.707.707A1 1 0 0 0 16 19h-1zm-4-4l.707-.707A1 1 0 0 0 11 14v1zm-4.707-1.293a1 1 0 0 0-1.414 1.414l1.414-1.414zm-.707.707l-.707-.707.707.707zM9 11v-1a1 1 0 0 0-.707.293L9 11zm-4 0h1a1 1 0 0 0-1-1v1zm0 4H4a1 1 0 0 0 1.707.707L5 15zm10-9h2V4h-2v2zm2 0a1 1 0 0 1 1 1h2a3 3 0 0 0-3-3v2zm1 1v6h2V7h-2zm0 6a1 1 0 0 1-1 1v2a3 3 0 0 0 3-3h-2zm-1 1h-2v2h2v-2zm-3 1v4h2v-4h-2zm1.707 3.293l-4-4-1.414 1.414 4 4 1.414-1.414zM11 14H7v2h4v-2zm-4 0c-.276 0-.525-.111-.707-.293l-1.414 1.414C5.42 15.663 6.172 16 7 16v-2zm-.707 1.121l3.414-3.414-1.414-1.414-3.414 3.414 1.414 1.414zM9 12h4v-2H9v2zm4 0a3 3 0 0 0 3-3h-2a1 1 0 0 1-1 1v2zm3-3V3h-2v6h2zm0-6a3 3 0 0 0-3-3v2a1 1 0 0 1 1 1h2zm-3-3H3v2h10V0zM3 0a3 3 0 0 0-3 3h2a1 1 0 0 1 1-1V0zM0 3v6h2V3H0zm0 6a3 3 0 0 0 3 3v-2a1 1 0 0 1-1-1H0zm3 3h2v-2H3v2zm1-1v4h2v-4H4zm1.707 4.707l.586-.586-1.414-1.414-.586.586 1.414 1.414z" }, null, -1);
-const _hoisted_3$1 = [
-  _hoisted_2$1
-];
-function _sfc_render(_ctx, _cache) {
-  return openBlock(), createElementBlock("svg", _hoisted_1$1, _hoisted_3$1);
-}
-const _imports_0 = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render]]);
-const Hero_vue_vue_type_style_index_0_lang = "";
-const _hoisted_1 = { class: "hero" };
-const _hoisted_2 = /* @__PURE__ */ createBaseVNode("div", { class: "image" }, [
-  /* @__PURE__ */ createBaseVNode("img", {
-    src: _imports_0,
-    alt: ""
-  })
-], -1);
-const _hoisted_3 = /* @__PURE__ */ createBaseVNode("div", { class: "content" }, "Hero", -1);
-const _hoisted_4 = [
-  _hoisted_2,
-  _hoisted_3
-];
+const BaseHero_vue_vue_type_style_index_0_lang = "";
+const _hoisted_1$1 = { class: "hero" };
+const _hoisted_2 = { class: "image" };
+const _hoisted_3 = ["src"];
+const _hoisted_4 = { class: "content" };
 const _sfc_main$1 = {
-  __name: "Hero",
+  __name: "BaseHero",
   props: {
-    name: "Giovanni"
+    title: String,
+    data: Object
   },
   setup(__props) {
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1, _hoisted_4);
-    };
-  }
-};
-const _sfc_main = {
-  __name: "HomeView",
-  setup(__props) {
-    return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("main", null, [
-        createVNode(_sfc_main$1)
+      return openBlock(), createElementBlock("div", _hoisted_1$1, [
+        createBaseVNode("div", _hoisted_2, [
+          __props.data ? (openBlock(), createElementBlock("img", {
+            key: 0,
+            src: __props.data.avatar_url,
+            alt: ""
+          }, null, 8, _hoisted_3)) : createCommentVNode("v-if", true)
+        ]),
+        createBaseVNode(
+          "div",
+          _hoisted_4,
+          "Hero " + toDisplayString(__props.title),
+          1
+          /* TEXT */
+        )
       ]);
     };
   }
 };
+const BaseHero = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__file", "/Users/Giovanni/Developer/PortfolioWebDev/src/components/BaseHero.vue"]]);
+const _hoisted_1 = { key: 1 };
+const _sfc_main = {
+  __name: "HomeView",
+  setup(__props) {
+    const store = useUserStore();
+    console.log(" store" + store);
+    const { data, username } = storeToRefs(store);
+    console.log(data.avatar_url);
+    return (_ctx, _cache) => {
+      return openBlock(), createElementBlock("main", null, [
+        unref(data) ? (openBlock(), createBlock(BaseHero, {
+          key: 0,
+          title: unref(data).login
+        }, null, 8, ["title"])) : createCommentVNode("v-if", true),
+        unref(store) ? (openBlock(), createElementBlock(
+          "div",
+          _hoisted_1,
+          toDisplayString(unref(username)),
+          1
+          /* TEXT */
+        )) : createCommentVNode("v-if", true)
+      ]);
+    };
+  }
+};
+const HomeView = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/Giovanni/Developer/PortfolioWebDev/src/views/HomeView.vue"]]);
 const router = createRouter({
   history: createWebHistory("/PortfolioWebDev/"),
   routes: [
     {
       path: "/",
       name: "home",
-      component: _sfc_main
+      component: HomeView
     },
     {
       path: "/projects",
@@ -6656,27 +11378,39 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./ProjectsView-21ed38cc.js"), true ? [] : void 0)
+      component: () => __vitePreload(() => import("./ProjectsView-2c6ecfd2.js"), true ? [] : void 0)
+      // component: ProjectsView
     },
     {
       path: "/about",
-      name: "About",
+      name: "about",
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./AboutView-1cf7afa3.js"), true ? [] : void 0)
+      component: () => __vitePreload(() => import("./AboutView-1c70e6ed.js"), true ? ["assets/AboutView-1c70e6ed.js","assets/AboutView-28469dcc.css"] : void 0)
+      // component: AboutView
     }
   ]
 });
 const main = "";
+const pinia = createPinia();
 const app = createApp(App);
 app.use(router);
+app.use(pinia);
 app.mount("#app");
+useUserStore();
 export {
+  BaseHero as B,
   _export_sfc as _,
-  createVNode as a,
-  _sfc_main$1 as b,
+  createBaseVNode as a,
+  computed as b,
   createElementBlock as c,
-  openBlock as o
+  createVNode as d,
+  unref as e,
+  createCommentVNode as f,
+  openBlock as o,
+  storeToRefs as s,
+  toDisplayString as t,
+  useUserStore as u
 };
-//# sourceMappingURL=index-79f0fa8b.js.map
+//# sourceMappingURL=index-e32c646a.js.map
