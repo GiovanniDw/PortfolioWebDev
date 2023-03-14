@@ -1,0 +1,7 @@
+img {
+  width: 100%;
+}
+.content {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50%, 1fr));
+}

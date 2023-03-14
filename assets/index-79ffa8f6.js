@@ -3102,6 +3102,41 @@ function invokeDirectiveHook(vnode, prevVNode, instance, name) {
   }
 }
 const NULL_DYNAMIC_COMPONENT = Symbol();
+function renderList(source, renderItem, cache, index) {
+  let ret;
+  const cached = cache && cache[index];
+  if (isArray$1(source) || isString(source)) {
+    ret = new Array(source.length);
+    for (let i = 0, l = source.length; i < l; i++) {
+      ret[i] = renderItem(source[i], i, void 0, cached && cached[i]);
+    }
+  } else if (typeof source === "number") {
+    if (!Number.isInteger(source)) {
+      warn$1(`The v-for range expect an integer value but got ${source}.`);
+    }
+    ret = new Array(source);
+    for (let i = 0; i < source; i++) {
+      ret[i] = renderItem(i + 1, i, void 0, cached && cached[i]);
+    }
+  } else if (isObject(source)) {
+    if (source[Symbol.iterator]) {
+      ret = Array.from(source, (item, i) => renderItem(item, i, void 0, cached && cached[i]));
+    } else {
+      const keys = Object.keys(source);
+      ret = new Array(keys.length);
+      for (let i = 0, l = keys.length; i < l; i++) {
+        const key = keys[i];
+        ret[i] = renderItem(source[key], key, i, cached && cached[i]);
+      }
+    }
+  } else {
+    ret = [];
+  }
+  if (cache) {
+    cache[index] = ret;
+  }
+  return ret;
+}
 const getPublicInstance = (i) => {
   if (!i)
     return null;
@@ -8759,6 +8794,14 @@ const useUserStore = defineStore("user", () => {
   console.log(myData);
   return { username, name, url, data, myData };
 });
+const useReposStore = defineStore("repos", () => {
+  const username = ref("GiovanniDw");
+  const name = ref("Giovanni");
+  const url = ref(`https://api.github.com/users/${username.value}/repos`);
+  const { isFetching, error, data } = useFetch(url.value).get().json();
+  console.log(data.value);
+  return { username, name, url, data };
+});
 /*!
   * vue-router v4.1.6
   * (c) 2022 Eduardo San Martin Morote
@@ -11307,9 +11350,16 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
 };
 const BaseHero_vue_vue_type_style_index_0_lang = "";
 const _hoisted_1$1 = { class: "hero" };
-const _hoisted_2 = { class: "image" };
-const _hoisted_3 = ["src"];
-const _hoisted_4 = { class: "content" };
+const _hoisted_2 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "image" },
+  [
+    /* @__PURE__ */ createCommentVNode(` <img v-if='data' :src="data.avatar_url" alt="" /> `)
+  ],
+  -1
+  /* HOISTED */
+);
+const _hoisted_3 = { class: "content" };
 const _sfc_main$1 = {
   __name: "BaseHero",
   props: {
@@ -11319,16 +11369,10 @@ const _sfc_main$1 = {
   setup(__props) {
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$1, [
-        createBaseVNode("div", _hoisted_2, [
-          __props.data ? (openBlock(), createElementBlock("img", {
-            key: 0,
-            src: __props.data.avatar_url,
-            alt: ""
-          }, null, 8, _hoisted_3)) : createCommentVNode("v-if", true)
-        ]),
+        _hoisted_2,
         createBaseVNode(
           "div",
-          _hoisted_4,
+          _hoisted_3,
           "Hero " + toDisplayString(__props.title),
           1
           /* TEXT */
@@ -11378,7 +11422,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./ProjectsView-2c6ecfd2.js"), true ? [] : void 0)
+      component: () => __vitePreload(() => import("./ProjectsView-1de851c4.js"), true ? ["assets/ProjectsView-1de851c4.js","assets/ProjectsView-ccae604b.css"] : void 0)
       // component: ProjectsView
     },
     {
@@ -11387,7 +11431,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./AboutView-1c70e6ed.js"), true ? ["assets/AboutView-1c70e6ed.js","assets/AboutView-28469dcc.css"] : void 0)
+      component: () => __vitePreload(() => import("./AboutView-9628a126.js"), true ? ["assets/AboutView-9628a126.js","assets/AboutView-19093390.css"] : void 0)
       // component: AboutView
     }
   ]
@@ -11398,19 +11442,22 @@ const app = createApp(App);
 app.use(router);
 app.use(pinia);
 app.mount("#app");
-useUserStore();
 export {
   BaseHero as B,
+  Fragment as F,
   _export_sfc as _,
   createBaseVNode as a,
-  computed as b,
+  unref as b,
   createElementBlock as c,
-  createVNode as d,
-  unref as e,
-  createCommentVNode as f,
+  createCommentVNode as d,
+  createBlock as e,
+  useUserStore as f,
+  computed as g,
+  createVNode as h,
   openBlock as o,
+  renderList as r,
   storeToRefs as s,
   toDisplayString as t,
-  useUserStore as u
+  useReposStore as u
 };
-//# sourceMappingURL=index-e32c646a.js.map
+//# sourceMappingURL=index-79ffa8f6.js.map
