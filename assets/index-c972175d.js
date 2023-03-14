@@ -11396,13 +11396,20 @@ const _sfc_main = {
           key: 0,
           title: unref(data).login
         }, null, 8, ["title"])) : createCommentVNode("v-if", true),
-        unref(store) ? (openBlock(), createElementBlock(
-          "div",
-          _hoisted_1,
-          toDisplayString(unref(username)),
-          1
-          /* TEXT */
-        )) : createCommentVNode("v-if", true)
+        unref(username) ? (openBlock(), createElementBlock("div", _hoisted_1, [
+          createTextVNode(
+            toDisplayString(unref(username)) + " ",
+            1
+            /* TEXT */
+          ),
+          createBaseVNode(
+            "p",
+            null,
+            toDisplayString(unref(data).name) + " " + toDisplayString(unref(data).bio),
+            1
+            /* TEXT */
+          )
+        ])) : createCommentVNode("v-if", true)
       ]);
     };
   }
@@ -11422,7 +11429,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./ProjectsView-1de851c4.js"), true ? ["assets/ProjectsView-1de851c4.js","assets/ProjectsView-ccae604b.css"] : void 0)
+      component: () => __vitePreload(() => import("./ProjectsView-248b7b23.js"), true ? ["assets/ProjectsView-248b7b23.js","assets/ProjectsView-ccae604b.css"] : void 0)
       // component: ProjectsView
     },
     {
@@ -11431,7 +11438,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./AboutView-9628a126.js"), true ? ["assets/AboutView-9628a126.js","assets/AboutView-19093390.css"] : void 0)
+      component: () => __vitePreload(() => import("./AboutView-1a00b90f.js"), true ? ["assets/AboutView-1a00b90f.js","assets/AboutView-19093390.css"] : void 0)
       // component: AboutView
     }
   ]
@@ -11460,4 +11467,4 @@ export {
   toDisplayString as t,
   useReposStore as u
 };
-//# sourceMappingURL=index-79ffa8f6.js.map
+//# sourceMappingURL=index-c972175d.js.map
