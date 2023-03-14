@@ -8,9 +8,13 @@ export default defineConfig({
   homepage: 'https://GiovanniDw.github.io/PortfolioWebDev/',
   base: '/PortfolioWebDev/',
   plugins: [vue()],
+  define: {
+    global: {},
+  },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      "./runtimeConfig": "./runtimeConfig.browser",
     }
   },
   css: {

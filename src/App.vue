@@ -1,20 +1,18 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-
-
-
-
 </script>
 
 <template>
   <header>
     <RouterLink to="/">{GiovanniDw}</RouterLink>
-      <nav>
-        <RouterLink to="/projects">Projects</RouterLink>
-        <RouterLink to="/about">About Me</RouterLink>
-      </nav>
+    <nav>
+      <RouterLink to="/projects">Projects</RouterLink>
+      <RouterLink to="/about">About Me</RouterLink>
+    </nav>
   </header>
+  <Suspense>
   <RouterView />
+</Suspense>
 </template>
 
 <style scoped>

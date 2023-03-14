@@ -1,8 +1,12 @@
 {
   "name": "portfoliowebdev",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "homepage": "https://GiovanniDw.github.io/PortfolioWebDev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GiovanniDw/PortfolioWebDev.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,6 +17,10 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@vueuse/core": "^9.13.0",
+    "@vueuse/integrations": "^9.13.0",
+    "axios": "^1.3.4",
+    "mande": "^2.0.6",
     "octokit": "^2.0.14",
     "pinia": "^2.0.33",
     "sass": "^1.59.2",
