@@ -12,6 +12,7 @@ defineProps({
   <div>
     <h3>Name:{{ data.name }}</h3>
     <p>Size {{ data.size }}</p>
+    <a :href="data.url">{{ data.url }}</a>
   </div>
 </template>
 
