@@ -11429,7 +11429,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./ProjectsView-248b7b23.js"), true ? ["assets/ProjectsView-248b7b23.js","assets/ProjectsView-ccae604b.css"] : void 0)
+      component: () => __vitePreload(() => import("./ProjectsView-e3ec371e.js"), true ? ["assets/ProjectsView-e3ec371e.js","assets/ProjectsView-ccae604b.css"] : void 0)
       // component: ProjectsView
     },
     {
@@ -11438,7 +11438,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./AboutView-1a00b90f.js"), true ? ["assets/AboutView-1a00b90f.js","assets/AboutView-19093390.css"] : void 0)
+      component: () => __vitePreload(() => import("./AboutView-d8471bb0.js"), true ? ["assets/AboutView-d8471bb0.js","assets/AboutView-19093390.css"] : void 0)
       // component: AboutView
     }
   ]
@@ -11467,4 +11467,4 @@ export {
   toDisplayString as t,
   useReposStore as u
 };
-//# sourceMappingURL=index-c972175d.js.map
+//# sourceMappingURL=index-65d60d48.js.map
