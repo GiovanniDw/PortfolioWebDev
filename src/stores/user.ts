@@ -10,13 +10,13 @@ import { useFetch, set } from '@vueuse/core'
 
 
 export const useUserStore = defineStore('user', () => {
-  
+
   const username = ref('GiovanniDw')
   const name = ref('Giovanni')
   const url = ref(`https://api.github.com/users/${username.value}`)
   const myData = ref(null)
-  // const request = requestData(url.value)
-  
+
+
   // console.log(request)
   // const data = ref(request)
   const { isFetching, error, data } = useFetch(url.value).get().json()
@@ -30,14 +30,3 @@ export const useUserStore = defineStore('user', () => {
   console.log(myData)
   return { username, name, url, data, myData }
 })
-
-export const requestData = async (url) => {
-  try {
-    const res = await fetch(url)
-    const data = await res.json()
-    return data
-  } catch (err) {
-    console.log(err)
-    throw new Error(err)
-  }
-}

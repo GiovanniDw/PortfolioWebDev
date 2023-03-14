@@ -1,5 +1,5 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView } from "vue-router";
 </script>
 
 <template>
@@ -11,8 +11,8 @@ import { RouterLink, RouterView } from 'vue-router'
     </nav>
   </header>
   <Suspense>
-  <RouterView />
-</Suspense>
+    <RouterView />
+  </Suspense>
 </template>
 
 <style scoped>
@@ -22,6 +22,10 @@ header {
   justify-content: center;
   align-items: center;
   padding: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-index-top);
+  background: var(--color-background);
   /* max-height: 100vh; */
 }
 

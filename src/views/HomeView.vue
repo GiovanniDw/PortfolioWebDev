@@ -1,15 +1,15 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import BaseHero from '@/components/BaseHero.vue'
+import { onMounted, ref } from "vue";
+import BaseHero from "@/components/BaseHero.vue";
 // import use from '../services/getGithubUserData';
-import { useUserStore } from '@/stores/user'
+import { useUserStore } from "@/stores/user";
 
 // const store = useUserStore();
 
 // import { useUserStore } from '@/stores/user';
-import { storeToRefs } from 'pinia';
+import { storeToRefs } from "pinia";
 
-const store = useUserStore()
+const store = useUserStore();
 
 // useUserStore();
 
@@ -22,30 +22,20 @@ const store = useUserStore()
 //   console.log(store.value)
 // })
 
-console.log(' store' + store);
-
-
-
+console.log(" store" + store);
 
 const { data, username } = storeToRefs(store);
 
+// const { username , login} = myData;
 
-  // const { username , login} = myData;
-
-
-
-console.log(data.avatar_url)
-
-
-
-
+console.log(data.avatar_url);
 </script>
 
 <template>
   <main>
-    <BaseHero v-if='data' :title="data.login" />
-    <div v-if='store'>
-    {{ username }}
-</div>
+    <BaseHero v-if="data" :title="data.login" />
+    <div v-if="store">
+      {{ username }}
+    </div>
   </main>
 </template>

@@ -1,20 +1,18 @@
 <script setup>
 defineProps({
   title: String,
-  data: Object
-})
-
+  data: Object,
+});
 
 // if (data.value) {
 //   console.log(data.value)
 // }
-
 </script>
 
 <template>
   <div class="hero">
     <div class="image">
-      <img v-if='data' :src="data.avatar_url" alt="" />
+      <!-- <img v-if='data' :src="data.avatar_url" alt="" /> -->
     </div>
     <div class="content">Hero {{ title }}</div>
   </div>
