@@ -34,8 +34,12 @@ console.log(data.avatar_url);
 <template>
   <main>
     <BaseHero v-if="data" :title="data.login" />
-    <div v-if="store">
+    <div v-if="username">
       {{ username }}
+      <p>
+        {{ data.name }}
+        {{ data.bio }}
+      </p>
     </div>
   </main>
 </template>
