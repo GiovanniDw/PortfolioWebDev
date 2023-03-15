@@ -17,8 +17,10 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@octokit/rest": "^19.0.7",
     "@vueuse/core": "^9.13.0",
     "@vueuse/integrations": "^9.13.0",
+    "@vueuse/motion": "^2.0.0-beta.12",
     "axios": "^1.3.4",
     "mande": "^2.0.6",
     "pinia": "^2.0.33",
@@ -39,7 +41,6 @@
     "eslint-plugin-vue": "^9.9.0",
     "gh-pages": "^5.0.0",
     "jsdom": "^21.1.1",
-    "octokit": "^2.0.14",
     "prettier": "^2.8.4",
     "typescript": "^4.9.5",
     "vite": "^4.1.4",

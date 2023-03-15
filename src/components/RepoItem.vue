@@ -9,11 +9,11 @@ defineProps({
 </script>
 
 <template v-if="data">
-  <div>
+  <article>
     <h3>Name:{{ data.name }}</h3>
     <p>Size {{ data.size }}</p>
     <a :href="data.url">{{ data.url }}</a>
-  </div>
+  </article>
 </template>
 
 <style></style>

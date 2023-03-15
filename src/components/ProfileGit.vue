@@ -1,12 +1,11 @@
 <script setup>
-  defineProps({
-    title: String,
-    data: Object,
-  });
+defineProps({
+  data: Object
+})
 
-  // if (data.value) {
-  //   console.log(data.value)
-  // }
+// if (data.value) {
+//   console.log(data.value)
+// }
 </script>
 
 <template>
@@ -19,9 +18,9 @@
 </template>
 
 <style scoped lang="scss">
-  section {
-    // min-height: 80vh;
-    // background-color: gray;
-    width: 100%;
-  }
+section {
+  // min-height: 80vh;
+  // background-color: gray;
+  width: 100%;
+}
 </style>
