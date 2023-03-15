@@ -2023,6 +2023,12 @@ function setCurrentRenderingInstance(instance) {
   currentScopeId = instance && instance.type.__scopeId || null;
   return prev;
 }
+function pushScopeId(id) {
+  currentScopeId = id;
+}
+function popScopeId() {
+  currentScopeId = null;
+}
 function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
   if (!ctx)
     return fn;
@@ -8280,528 +8286,6 @@ function storeToRefs(store) {
     return refs;
   }
 }
-var _a;
-const isClient = typeof window !== "undefined";
-isClient && ((_a = window == null ? void 0 : window.navigator) == null ? void 0 : _a.userAgent) && /iP(ad|hone|od)/.test(window.navigator.userAgent);
-function resolveUnref(r) {
-  return typeof r === "function" ? r() : unref(r);
-}
-function promiseTimeout(ms, throwOnTimeout = false, reason = "Timeout") {
-  return new Promise((resolve, reject) => {
-    if (throwOnTimeout)
-      setTimeout(() => reject(reason), ms);
-    else
-      setTimeout(resolve, ms);
-  });
-}
-function identity(arg) {
-  return arg;
-}
-function containsProp(obj, ...props) {
-  return props.some((k) => k in obj);
-}
-function tryOnScopeDispose(fn) {
-  if (getCurrentScope()) {
-    onScopeDispose(fn);
-    return true;
-  }
-  return false;
-}
-function createEventHook() {
-  const fns = [];
-  const off = (fn) => {
-    const index = fns.indexOf(fn);
-    if (index !== -1)
-      fns.splice(index, 1);
-  };
-  const on = (fn) => {
-    fns.push(fn);
-    const offFn = () => off(fn);
-    tryOnScopeDispose(offFn);
-    return {
-      off: offFn
-    };
-  };
-  const trigger2 = (param) => {
-    fns.forEach((fn) => fn(param));
-  };
-  return {
-    on,
-    off,
-    trigger: trigger2
-  };
-}
-function resolveRef(r) {
-  return typeof r === "function" ? computed(r) : ref(r);
-}
-function set(...args) {
-  if (args.length === 2) {
-    const [ref2, value] = args;
-    ref2.value = value;
-  }
-  if (args.length === 3) {
-    {
-      const [target, key, value] = args;
-      target[key] = value;
-    }
-  }
-}
-function createUntil(r, isNot = false) {
-  function toMatch(condition, { flush = "sync", deep = false, timeout, throwOnTimeout } = {}) {
-    let stop = null;
-    const watcher = new Promise((resolve) => {
-      stop = watch(r, (v) => {
-        if (condition(v) !== isNot) {
-          stop == null ? void 0 : stop();
-          resolve(v);
-        }
-      }, {
-        flush,
-        deep,
-        immediate: true
-      });
-    });
-    const promises = [watcher];
-    if (timeout != null) {
-      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => stop == null ? void 0 : stop()));
-    }
-    return Promise.race(promises);
-  }
-  function toBe(value, options) {
-    if (!isRef(value))
-      return toMatch((v) => v === value, options);
-    const { flush = "sync", deep = false, timeout, throwOnTimeout } = options != null ? options : {};
-    let stop = null;
-    const watcher = new Promise((resolve) => {
-      stop = watch([r, value], ([v1, v2]) => {
-        if (isNot !== (v1 === v2)) {
-          stop == null ? void 0 : stop();
-          resolve(v1);
-        }
-      }, {
-        flush,
-        deep,
-        immediate: true
-      });
-    });
-    const promises = [watcher];
-    if (timeout != null) {
-      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => {
-        stop == null ? void 0 : stop();
-        return resolveUnref(r);
-      }));
-    }
-    return Promise.race(promises);
-  }
-  function toBeTruthy(options) {
-    return toMatch((v) => Boolean(v), options);
-  }
-  function toBeNull(options) {
-    return toBe(null, options);
-  }
-  function toBeUndefined(options) {
-    return toBe(void 0, options);
-  }
-  function toBeNaN(options) {
-    return toMatch(Number.isNaN, options);
-  }
-  function toContains(value, options) {
-    return toMatch((v) => {
-      const array = Array.from(v);
-      return array.includes(value) || array.includes(resolveUnref(value));
-    }, options);
-  }
-  function changed(options) {
-    return changedTimes(1, options);
-  }
-  function changedTimes(n = 1, options) {
-    let count = -1;
-    return toMatch(() => {
-      count += 1;
-      return count >= n;
-    }, options);
-  }
-  if (Array.isArray(resolveUnref(r))) {
-    const instance = {
-      toMatch,
-      toContains,
-      changed,
-      changedTimes,
-      get not() {
-        return createUntil(r, !isNot);
-      }
-    };
-    return instance;
-  } else {
-    const instance = {
-      toMatch,
-      toBe,
-      toBeTruthy,
-      toBeNull,
-      toBeNaN,
-      toBeUndefined,
-      changed,
-      changedTimes,
-      get not() {
-        return createUntil(r, !isNot);
-      }
-    };
-    return instance;
-  }
-}
-function until(r) {
-  return createUntil(r);
-}
-function useTimeoutFn(cb, interval, options = {}) {
-  const {
-    immediate = true
-  } = options;
-  const isPending = ref(false);
-  let timer = null;
-  function clear2() {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  }
-  function stop() {
-    isPending.value = false;
-    clear2();
-  }
-  function start(...args) {
-    clear2();
-    isPending.value = true;
-    timer = setTimeout(() => {
-      isPending.value = false;
-      timer = null;
-      cb(...args);
-    }, resolveUnref(interval));
-  }
-  if (immediate) {
-    isPending.value = true;
-    if (isClient)
-      start();
-  }
-  tryOnScopeDispose(stop);
-  return {
-    isPending: readonly(isPending),
-    start,
-    stop
-  };
-}
-const defaultWindow = isClient ? window : void 0;
-const _global = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof {} !== "undefined" ? {} : typeof self !== "undefined" ? self : {};
-const globalKey = "__vueuse_ssr_handlers__";
-_global[globalKey] = _global[globalKey] || {};
-var __defProp$d = Object.defineProperty;
-var __defProps$3 = Object.defineProperties;
-var __getOwnPropDescs$3 = Object.getOwnPropertyDescriptors;
-var __getOwnPropSymbols$e = Object.getOwnPropertySymbols;
-var __hasOwnProp$e = Object.prototype.hasOwnProperty;
-var __propIsEnum$e = Object.prototype.propertyIsEnumerable;
-var __defNormalProp$d = (obj, key, value) => key in obj ? __defProp$d(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __spreadValues$d = (a, b) => {
-  for (var prop in b || (b = {}))
-    if (__hasOwnProp$e.call(b, prop))
-      __defNormalProp$d(a, prop, b[prop]);
-  if (__getOwnPropSymbols$e)
-    for (var prop of __getOwnPropSymbols$e(b)) {
-      if (__propIsEnum$e.call(b, prop))
-        __defNormalProp$d(a, prop, b[prop]);
-    }
-  return a;
-};
-var __spreadProps$3 = (a, b) => __defProps$3(a, __getOwnPropDescs$3(b));
-const payloadMapping = {
-  json: "application/json",
-  text: "text/plain"
-};
-function isFetchOptions(obj) {
-  return obj && containsProp(obj, "immediate", "refetch", "initialData", "timeout", "beforeFetch", "afterFetch", "onFetchError", "fetch");
-}
-function headersToObject(headers) {
-  if (typeof Headers !== "undefined" && headers instanceof Headers)
-    return Object.fromEntries([...headers.entries()]);
-  return headers;
-}
-function useFetch(url, ...args) {
-  var _a2;
-  const supportsAbort = typeof AbortController === "function";
-  let fetchOptions = {};
-  let options = { immediate: true, refetch: false, timeout: 0 };
-  const config = {
-    method: "GET",
-    type: "text",
-    payload: void 0
-  };
-  if (args.length > 0) {
-    if (isFetchOptions(args[0]))
-      options = __spreadValues$d(__spreadValues$d({}, options), args[0]);
-    else
-      fetchOptions = args[0];
-  }
-  if (args.length > 1) {
-    if (isFetchOptions(args[1]))
-      options = __spreadValues$d(__spreadValues$d({}, options), args[1]);
-  }
-  const {
-    fetch: fetch2 = (_a2 = defaultWindow) == null ? void 0 : _a2.fetch,
-    initialData,
-    timeout
-  } = options;
-  const responseEvent = createEventHook();
-  const errorEvent = createEventHook();
-  const finallyEvent = createEventHook();
-  const isFinished = ref(false);
-  const isFetching = ref(false);
-  const aborted = ref(false);
-  const statusCode = ref(null);
-  const response = shallowRef(null);
-  const error = shallowRef(null);
-  const data = shallowRef(initialData);
-  const canAbort = computed(() => supportsAbort && isFetching.value);
-  let controller;
-  let timer;
-  const abort = () => {
-    if (supportsAbort && controller) {
-      controller.abort();
-      controller = void 0;
-    }
-  };
-  const loading = (isLoading) => {
-    isFetching.value = isLoading;
-    isFinished.value = !isLoading;
-  };
-  if (timeout)
-    timer = useTimeoutFn(abort, timeout, { immediate: false });
-  const execute = async (throwOnFailed = false) => {
-    var _a22;
-    loading(true);
-    error.value = null;
-    statusCode.value = null;
-    aborted.value = false;
-    if (supportsAbort) {
-      abort();
-      controller = new AbortController();
-      controller.signal.onabort = () => aborted.value = true;
-      fetchOptions = __spreadProps$3(__spreadValues$d({}, fetchOptions), {
-        signal: controller.signal
-      });
-    }
-    const defaultFetchOptions = {
-      method: config.method,
-      headers: {}
-    };
-    if (config.payload) {
-      const headers = headersToObject(defaultFetchOptions.headers);
-      if (config.payloadType)
-        headers["Content-Type"] = (_a22 = payloadMapping[config.payloadType]) != null ? _a22 : config.payloadType;
-      const payload = resolveUnref(config.payload);
-      defaultFetchOptions.body = config.payloadType === "json" ? JSON.stringify(payload) : payload;
-    }
-    let isCanceled = false;
-    const context = {
-      url: resolveUnref(url),
-      options: __spreadValues$d(__spreadValues$d({}, defaultFetchOptions), fetchOptions),
-      cancel: () => {
-        isCanceled = true;
-      }
-    };
-    if (options.beforeFetch)
-      Object.assign(context, await options.beforeFetch(context));
-    if (isCanceled || !fetch2) {
-      loading(false);
-      return Promise.resolve(null);
-    }
-    let responseData = null;
-    if (timer)
-      timer.start();
-    return new Promise((resolve, reject) => {
-      var _a3;
-      fetch2(context.url, __spreadProps$3(__spreadValues$d(__spreadValues$d({}, defaultFetchOptions), context.options), {
-        headers: __spreadValues$d(__spreadValues$d({}, headersToObject(defaultFetchOptions.headers)), headersToObject((_a3 = context.options) == null ? void 0 : _a3.headers))
-      })).then(async (fetchResponse) => {
-        response.value = fetchResponse;
-        statusCode.value = fetchResponse.status;
-        responseData = await fetchResponse[config.type]();
-        if (options.afterFetch && statusCode.value >= 200 && statusCode.value < 300)
-          ({ data: responseData } = await options.afterFetch({ data: responseData, response: fetchResponse }));
-        data.value = responseData;
-        if (!fetchResponse.ok)
-          throw new Error(fetchResponse.statusText);
-        responseEvent.trigger(fetchResponse);
-        return resolve(fetchResponse);
-      }).catch(async (fetchError) => {
-        let errorData = fetchError.message || fetchError.name;
-        if (options.onFetchError)
-          ({ data: responseData, error: errorData } = await options.onFetchError({ data: responseData, error: fetchError, response: response.value }));
-        data.value = responseData;
-        error.value = errorData;
-        errorEvent.trigger(fetchError);
-        if (throwOnFailed)
-          return reject(fetchError);
-        return resolve(null);
-      }).finally(() => {
-        loading(false);
-        if (timer)
-          timer.stop();
-        finallyEvent.trigger(null);
-      });
-    });
-  };
-  const refetch = resolveRef(options.refetch);
-  watch([
-    refetch,
-    resolveRef(url)
-  ], ([refetch2]) => refetch2 && execute(), { deep: true });
-  const shell = {
-    isFinished,
-    statusCode,
-    response,
-    error,
-    data,
-    isFetching,
-    canAbort,
-    aborted,
-    abort,
-    execute,
-    onFetchResponse: responseEvent.on,
-    onFetchError: errorEvent.on,
-    onFetchFinally: finallyEvent.on,
-    get: setMethod("GET"),
-    put: setMethod("PUT"),
-    post: setMethod("POST"),
-    delete: setMethod("DELETE"),
-    patch: setMethod("PATCH"),
-    head: setMethod("HEAD"),
-    options: setMethod("OPTIONS"),
-    json: setType("json"),
-    text: setType("text"),
-    blob: setType("blob"),
-    arrayBuffer: setType("arrayBuffer"),
-    formData: setType("formData")
-  };
-  function setMethod(method) {
-    return (payload, payloadType) => {
-      if (!isFetching.value) {
-        config.method = method;
-        config.payload = payload;
-        config.payloadType = payloadType;
-        if (isRef(config.payload)) {
-          watch([
-            refetch,
-            resolveRef(config.payload)
-          ], ([refetch2]) => refetch2 && execute(), { deep: true });
-        }
-        const rawPayload = resolveUnref(config.payload);
-        if (!payloadType && rawPayload && Object.getPrototypeOf(rawPayload) === Object.prototype && !(rawPayload instanceof FormData))
-          config.payloadType = "json";
-        return __spreadProps$3(__spreadValues$d({}, shell), {
-          then(onFulfilled, onRejected) {
-            return waitUntilFinished().then(onFulfilled, onRejected);
-          }
-        });
-      }
-      return void 0;
-    };
-  }
-  function waitUntilFinished() {
-    return new Promise((resolve, reject) => {
-      until(isFinished).toBe(true).then(() => resolve(shell)).catch((error2) => reject(error2));
-    });
-  }
-  function setType(type) {
-    return () => {
-      if (!isFetching.value) {
-        config.type = type;
-        return __spreadProps$3(__spreadValues$d({}, shell), {
-          then(onFulfilled, onRejected) {
-            return waitUntilFinished().then(onFulfilled, onRejected);
-          }
-        });
-      }
-      return void 0;
-    };
-  }
-  if (options.immediate)
-    setTimeout(execute, 0);
-  return __spreadProps$3(__spreadValues$d({}, shell), {
-    then(onFulfilled, onRejected) {
-      return waitUntilFinished().then(onFulfilled, onRejected);
-    }
-  });
-}
-var SwipeDirection;
-(function(SwipeDirection2) {
-  SwipeDirection2["UP"] = "UP";
-  SwipeDirection2["RIGHT"] = "RIGHT";
-  SwipeDirection2["DOWN"] = "DOWN";
-  SwipeDirection2["LEFT"] = "LEFT";
-  SwipeDirection2["NONE"] = "NONE";
-})(SwipeDirection || (SwipeDirection = {}));
-var __defProp = Object.defineProperty;
-var __getOwnPropSymbols = Object.getOwnPropertySymbols;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __propIsEnum = Object.prototype.propertyIsEnumerable;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __spreadValues = (a, b) => {
-  for (var prop in b || (b = {}))
-    if (__hasOwnProp.call(b, prop))
-      __defNormalProp(a, prop, b[prop]);
-  if (__getOwnPropSymbols)
-    for (var prop of __getOwnPropSymbols(b)) {
-      if (__propIsEnum.call(b, prop))
-        __defNormalProp(a, prop, b[prop]);
-    }
-  return a;
-};
-const _TransitionPresets = {
-  easeInSine: [0.12, 0, 0.39, 0],
-  easeOutSine: [0.61, 1, 0.88, 1],
-  easeInOutSine: [0.37, 0, 0.63, 1],
-  easeInQuad: [0.11, 0, 0.5, 0],
-  easeOutQuad: [0.5, 1, 0.89, 1],
-  easeInOutQuad: [0.45, 0, 0.55, 1],
-  easeInCubic: [0.32, 0, 0.67, 0],
-  easeOutCubic: [0.33, 1, 0.68, 1],
-  easeInOutCubic: [0.65, 0, 0.35, 1],
-  easeInQuart: [0.5, 0, 0.75, 0],
-  easeOutQuart: [0.25, 1, 0.5, 1],
-  easeInOutQuart: [0.76, 0, 0.24, 1],
-  easeInQuint: [0.64, 0, 0.78, 0],
-  easeOutQuint: [0.22, 1, 0.36, 1],
-  easeInOutQuint: [0.83, 0, 0.17, 1],
-  easeInExpo: [0.7, 0, 0.84, 0],
-  easeOutExpo: [0.16, 1, 0.3, 1],
-  easeInOutExpo: [0.87, 0, 0.13, 1],
-  easeInCirc: [0.55, 0, 1, 0.45],
-  easeOutCirc: [0, 0.55, 0.45, 1],
-  easeInOutCirc: [0.85, 0, 0.15, 1],
-  easeInBack: [0.36, 0, 0.66, -0.56],
-  easeOutBack: [0.34, 1.56, 0.64, 1],
-  easeInOutBack: [0.68, -0.6, 0.32, 1.6]
-};
-__spreadValues({
-  linear: identity
-}, _TransitionPresets);
-const useUserStore = defineStore("user", () => {
-  const username = ref("GiovanniDw");
-  const name = ref("Giovanni");
-  const url = ref(`https://api.github.com/users/${username.value}`);
-  const myData = ref(null);
-  const { isFetching, error, data } = useFetch(url.value).get().json();
-  set(myData, data);
-  console.log(myData);
-  return { username, name, url, data, myData };
-});
-const useReposStore = defineStore("repos", () => {
-  const username = ref("GiovanniDw");
-  const name = ref("Giovanni");
-  const url = ref(`https://api.github.com/users/${username.value}/repos`);
-  const { isFetching, error, data } = useFetch(url.value).get().json();
-  console.log(data.value);
-  return { username, name, url, data };
-});
 /*!
   * vue-router v4.1.6
   * (c) 2022 Eduardo San Martin Morote
@@ -11348,9 +10832,10 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
     }
   })).then(() => baseModule());
 };
-const BaseHero_vue_vue_type_style_index_0_lang = "";
+const BaseHero_vue_vue_type_style_index_0_scoped_c7248654_lang = "";
+const _withScopeId = (n) => (pushScopeId("data-v-c7248654"), n = n(), popScopeId(), n);
 const _hoisted_1$1 = { class: "hero" };
-const _hoisted_2 = /* @__PURE__ */ createBaseVNode(
+const _hoisted_2 = /* @__PURE__ */ _withScopeId(() => /* @__PURE__ */ createBaseVNode(
   "div",
   { class: "image" },
   [
@@ -11358,7 +10843,7 @@ const _hoisted_2 = /* @__PURE__ */ createBaseVNode(
   ],
   -1
   /* HOISTED */
-);
+));
 const _hoisted_3 = { class: "content" };
 const _sfc_main$1 = {
   __name: "BaseHero",
@@ -11368,7 +10853,7 @@ const _sfc_main$1 = {
   },
   setup(__props) {
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("div", _hoisted_1$1, [
+      return openBlock(), createElementBlock("section", _hoisted_1$1, [
         _hoisted_2,
         createBaseVNode(
           "div",
@@ -11381,7 +10866,521 @@ const _sfc_main$1 = {
     };
   }
 };
-const BaseHero = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__file", "/Users/Giovanni/Developer/PortfolioWebDev/src/components/BaseHero.vue"]]);
+const BaseHero = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__scopeId", "data-v-c7248654"], ["__file", "/Users/Giovanni/Developer/PortfolioWebDev/src/components/BaseHero.vue"]]);
+var _a;
+const isClient = typeof window !== "undefined";
+isClient && ((_a = window == null ? void 0 : window.navigator) == null ? void 0 : _a.userAgent) && /iP(ad|hone|od)/.test(window.navigator.userAgent);
+function resolveUnref(r) {
+  return typeof r === "function" ? r() : unref(r);
+}
+function promiseTimeout(ms, throwOnTimeout = false, reason = "Timeout") {
+  return new Promise((resolve, reject) => {
+    if (throwOnTimeout)
+      setTimeout(() => reject(reason), ms);
+    else
+      setTimeout(resolve, ms);
+  });
+}
+function identity(arg) {
+  return arg;
+}
+function containsProp(obj, ...props) {
+  return props.some((k) => k in obj);
+}
+function tryOnScopeDispose(fn) {
+  if (getCurrentScope()) {
+    onScopeDispose(fn);
+    return true;
+  }
+  return false;
+}
+function createEventHook() {
+  const fns = [];
+  const off = (fn) => {
+    const index = fns.indexOf(fn);
+    if (index !== -1)
+      fns.splice(index, 1);
+  };
+  const on = (fn) => {
+    fns.push(fn);
+    const offFn = () => off(fn);
+    tryOnScopeDispose(offFn);
+    return {
+      off: offFn
+    };
+  };
+  const trigger2 = (param) => {
+    fns.forEach((fn) => fn(param));
+  };
+  return {
+    on,
+    off,
+    trigger: trigger2
+  };
+}
+function resolveRef(r) {
+  return typeof r === "function" ? computed(r) : ref(r);
+}
+function set(...args) {
+  if (args.length === 2) {
+    const [ref2, value] = args;
+    ref2.value = value;
+  }
+  if (args.length === 3) {
+    {
+      const [target, key, value] = args;
+      target[key] = value;
+    }
+  }
+}
+function createUntil(r, isNot = false) {
+  function toMatch(condition, { flush = "sync", deep = false, timeout, throwOnTimeout } = {}) {
+    let stop = null;
+    const watcher = new Promise((resolve) => {
+      stop = watch(r, (v) => {
+        if (condition(v) !== isNot) {
+          stop == null ? void 0 : stop();
+          resolve(v);
+        }
+      }, {
+        flush,
+        deep,
+        immediate: true
+      });
+    });
+    const promises = [watcher];
+    if (timeout != null) {
+      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => stop == null ? void 0 : stop()));
+    }
+    return Promise.race(promises);
+  }
+  function toBe(value, options) {
+    if (!isRef(value))
+      return toMatch((v) => v === value, options);
+    const { flush = "sync", deep = false, timeout, throwOnTimeout } = options != null ? options : {};
+    let stop = null;
+    const watcher = new Promise((resolve) => {
+      stop = watch([r, value], ([v1, v2]) => {
+        if (isNot !== (v1 === v2)) {
+          stop == null ? void 0 : stop();
+          resolve(v1);
+        }
+      }, {
+        flush,
+        deep,
+        immediate: true
+      });
+    });
+    const promises = [watcher];
+    if (timeout != null) {
+      promises.push(promiseTimeout(timeout, throwOnTimeout).then(() => resolveUnref(r)).finally(() => {
+        stop == null ? void 0 : stop();
+        return resolveUnref(r);
+      }));
+    }
+    return Promise.race(promises);
+  }
+  function toBeTruthy(options) {
+    return toMatch((v) => Boolean(v), options);
+  }
+  function toBeNull(options) {
+    return toBe(null, options);
+  }
+  function toBeUndefined(options) {
+    return toBe(void 0, options);
+  }
+  function toBeNaN(options) {
+    return toMatch(Number.isNaN, options);
+  }
+  function toContains(value, options) {
+    return toMatch((v) => {
+      const array = Array.from(v);
+      return array.includes(value) || array.includes(resolveUnref(value));
+    }, options);
+  }
+  function changed(options) {
+    return changedTimes(1, options);
+  }
+  function changedTimes(n = 1, options) {
+    let count = -1;
+    return toMatch(() => {
+      count += 1;
+      return count >= n;
+    }, options);
+  }
+  if (Array.isArray(resolveUnref(r))) {
+    const instance = {
+      toMatch,
+      toContains,
+      changed,
+      changedTimes,
+      get not() {
+        return createUntil(r, !isNot);
+      }
+    };
+    return instance;
+  } else {
+    const instance = {
+      toMatch,
+      toBe,
+      toBeTruthy,
+      toBeNull,
+      toBeNaN,
+      toBeUndefined,
+      changed,
+      changedTimes,
+      get not() {
+        return createUntil(r, !isNot);
+      }
+    };
+    return instance;
+  }
+}
+function until(r) {
+  return createUntil(r);
+}
+function useTimeoutFn(cb, interval, options = {}) {
+  const {
+    immediate = true
+  } = options;
+  const isPending = ref(false);
+  let timer = null;
+  function clear2() {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+  function stop() {
+    isPending.value = false;
+    clear2();
+  }
+  function start(...args) {
+    clear2();
+    isPending.value = true;
+    timer = setTimeout(() => {
+      isPending.value = false;
+      timer = null;
+      cb(...args);
+    }, resolveUnref(interval));
+  }
+  if (immediate) {
+    isPending.value = true;
+    if (isClient)
+      start();
+  }
+  tryOnScopeDispose(stop);
+  return {
+    isPending: readonly(isPending),
+    start,
+    stop
+  };
+}
+const defaultWindow = isClient ? window : void 0;
+const _global = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof {} !== "undefined" ? {} : typeof self !== "undefined" ? self : {};
+const globalKey = "__vueuse_ssr_handlers__";
+_global[globalKey] = _global[globalKey] || {};
+var __defProp$d = Object.defineProperty;
+var __defProps$3 = Object.defineProperties;
+var __getOwnPropDescs$3 = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols$e = Object.getOwnPropertySymbols;
+var __hasOwnProp$e = Object.prototype.hasOwnProperty;
+var __propIsEnum$e = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$d = (obj, key, value) => key in obj ? __defProp$d(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$d = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$e.call(b, prop))
+      __defNormalProp$d(a, prop, b[prop]);
+  if (__getOwnPropSymbols$e)
+    for (var prop of __getOwnPropSymbols$e(b)) {
+      if (__propIsEnum$e.call(b, prop))
+        __defNormalProp$d(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps$3 = (a, b) => __defProps$3(a, __getOwnPropDescs$3(b));
+const payloadMapping = {
+  json: "application/json",
+  text: "text/plain"
+};
+function isFetchOptions(obj) {
+  return obj && containsProp(obj, "immediate", "refetch", "initialData", "timeout", "beforeFetch", "afterFetch", "onFetchError", "fetch");
+}
+function headersToObject(headers) {
+  if (typeof Headers !== "undefined" && headers instanceof Headers)
+    return Object.fromEntries([...headers.entries()]);
+  return headers;
+}
+function useFetch(url, ...args) {
+  var _a2;
+  const supportsAbort = typeof AbortController === "function";
+  let fetchOptions = {};
+  let options = { immediate: true, refetch: false, timeout: 0 };
+  const config = {
+    method: "GET",
+    type: "text",
+    payload: void 0
+  };
+  if (args.length > 0) {
+    if (isFetchOptions(args[0]))
+      options = __spreadValues$d(__spreadValues$d({}, options), args[0]);
+    else
+      fetchOptions = args[0];
+  }
+  if (args.length > 1) {
+    if (isFetchOptions(args[1]))
+      options = __spreadValues$d(__spreadValues$d({}, options), args[1]);
+  }
+  const {
+    fetch: fetch2 = (_a2 = defaultWindow) == null ? void 0 : _a2.fetch,
+    initialData,
+    timeout
+  } = options;
+  const responseEvent = createEventHook();
+  const errorEvent = createEventHook();
+  const finallyEvent = createEventHook();
+  const isFinished = ref(false);
+  const isFetching = ref(false);
+  const aborted = ref(false);
+  const statusCode = ref(null);
+  const response = shallowRef(null);
+  const error = shallowRef(null);
+  const data = shallowRef(initialData);
+  const canAbort = computed(() => supportsAbort && isFetching.value);
+  let controller;
+  let timer;
+  const abort = () => {
+    if (supportsAbort && controller) {
+      controller.abort();
+      controller = void 0;
+    }
+  };
+  const loading = (isLoading) => {
+    isFetching.value = isLoading;
+    isFinished.value = !isLoading;
+  };
+  if (timeout)
+    timer = useTimeoutFn(abort, timeout, { immediate: false });
+  const execute = async (throwOnFailed = false) => {
+    var _a22;
+    loading(true);
+    error.value = null;
+    statusCode.value = null;
+    aborted.value = false;
+    if (supportsAbort) {
+      abort();
+      controller = new AbortController();
+      controller.signal.onabort = () => aborted.value = true;
+      fetchOptions = __spreadProps$3(__spreadValues$d({}, fetchOptions), {
+        signal: controller.signal
+      });
+    }
+    const defaultFetchOptions = {
+      method: config.method,
+      headers: {}
+    };
+    if (config.payload) {
+      const headers = headersToObject(defaultFetchOptions.headers);
+      if (config.payloadType)
+        headers["Content-Type"] = (_a22 = payloadMapping[config.payloadType]) != null ? _a22 : config.payloadType;
+      const payload = resolveUnref(config.payload);
+      defaultFetchOptions.body = config.payloadType === "json" ? JSON.stringify(payload) : payload;
+    }
+    let isCanceled = false;
+    const context = {
+      url: resolveUnref(url),
+      options: __spreadValues$d(__spreadValues$d({}, defaultFetchOptions), fetchOptions),
+      cancel: () => {
+        isCanceled = true;
+      }
+    };
+    if (options.beforeFetch)
+      Object.assign(context, await options.beforeFetch(context));
+    if (isCanceled || !fetch2) {
+      loading(false);
+      return Promise.resolve(null);
+    }
+    let responseData = null;
+    if (timer)
+      timer.start();
+    return new Promise((resolve, reject) => {
+      var _a3;
+      fetch2(context.url, __spreadProps$3(__spreadValues$d(__spreadValues$d({}, defaultFetchOptions), context.options), {
+        headers: __spreadValues$d(__spreadValues$d({}, headersToObject(defaultFetchOptions.headers)), headersToObject((_a3 = context.options) == null ? void 0 : _a3.headers))
+      })).then(async (fetchResponse) => {
+        response.value = fetchResponse;
+        statusCode.value = fetchResponse.status;
+        responseData = await fetchResponse[config.type]();
+        if (options.afterFetch && statusCode.value >= 200 && statusCode.value < 300)
+          ({ data: responseData } = await options.afterFetch({ data: responseData, response: fetchResponse }));
+        data.value = responseData;
+        if (!fetchResponse.ok)
+          throw new Error(fetchResponse.statusText);
+        responseEvent.trigger(fetchResponse);
+        return resolve(fetchResponse);
+      }).catch(async (fetchError) => {
+        let errorData = fetchError.message || fetchError.name;
+        if (options.onFetchError)
+          ({ data: responseData, error: errorData } = await options.onFetchError({ data: responseData, error: fetchError, response: response.value }));
+        data.value = responseData;
+        error.value = errorData;
+        errorEvent.trigger(fetchError);
+        if (throwOnFailed)
+          return reject(fetchError);
+        return resolve(null);
+      }).finally(() => {
+        loading(false);
+        if (timer)
+          timer.stop();
+        finallyEvent.trigger(null);
+      });
+    });
+  };
+  const refetch = resolveRef(options.refetch);
+  watch([
+    refetch,
+    resolveRef(url)
+  ], ([refetch2]) => refetch2 && execute(), { deep: true });
+  const shell = {
+    isFinished,
+    statusCode,
+    response,
+    error,
+    data,
+    isFetching,
+    canAbort,
+    aborted,
+    abort,
+    execute,
+    onFetchResponse: responseEvent.on,
+    onFetchError: errorEvent.on,
+    onFetchFinally: finallyEvent.on,
+    get: setMethod("GET"),
+    put: setMethod("PUT"),
+    post: setMethod("POST"),
+    delete: setMethod("DELETE"),
+    patch: setMethod("PATCH"),
+    head: setMethod("HEAD"),
+    options: setMethod("OPTIONS"),
+    json: setType("json"),
+    text: setType("text"),
+    blob: setType("blob"),
+    arrayBuffer: setType("arrayBuffer"),
+    formData: setType("formData")
+  };
+  function setMethod(method) {
+    return (payload, payloadType) => {
+      if (!isFetching.value) {
+        config.method = method;
+        config.payload = payload;
+        config.payloadType = payloadType;
+        if (isRef(config.payload)) {
+          watch([
+            refetch,
+            resolveRef(config.payload)
+          ], ([refetch2]) => refetch2 && execute(), { deep: true });
+        }
+        const rawPayload = resolveUnref(config.payload);
+        if (!payloadType && rawPayload && Object.getPrototypeOf(rawPayload) === Object.prototype && !(rawPayload instanceof FormData))
+          config.payloadType = "json";
+        return __spreadProps$3(__spreadValues$d({}, shell), {
+          then(onFulfilled, onRejected) {
+            return waitUntilFinished().then(onFulfilled, onRejected);
+          }
+        });
+      }
+      return void 0;
+    };
+  }
+  function waitUntilFinished() {
+    return new Promise((resolve, reject) => {
+      until(isFinished).toBe(true).then(() => resolve(shell)).catch((error2) => reject(error2));
+    });
+  }
+  function setType(type) {
+    return () => {
+      if (!isFetching.value) {
+        config.type = type;
+        return __spreadProps$3(__spreadValues$d({}, shell), {
+          then(onFulfilled, onRejected) {
+            return waitUntilFinished().then(onFulfilled, onRejected);
+          }
+        });
+      }
+      return void 0;
+    };
+  }
+  if (options.immediate)
+    setTimeout(execute, 0);
+  return __spreadProps$3(__spreadValues$d({}, shell), {
+    then(onFulfilled, onRejected) {
+      return waitUntilFinished().then(onFulfilled, onRejected);
+    }
+  });
+}
+var SwipeDirection;
+(function(SwipeDirection2) {
+  SwipeDirection2["UP"] = "UP";
+  SwipeDirection2["RIGHT"] = "RIGHT";
+  SwipeDirection2["DOWN"] = "DOWN";
+  SwipeDirection2["LEFT"] = "LEFT";
+  SwipeDirection2["NONE"] = "NONE";
+})(SwipeDirection || (SwipeDirection = {}));
+var __defProp = Object.defineProperty;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+const _TransitionPresets = {
+  easeInSine: [0.12, 0, 0.39, 0],
+  easeOutSine: [0.61, 1, 0.88, 1],
+  easeInOutSine: [0.37, 0, 0.63, 1],
+  easeInQuad: [0.11, 0, 0.5, 0],
+  easeOutQuad: [0.5, 1, 0.89, 1],
+  easeInOutQuad: [0.45, 0, 0.55, 1],
+  easeInCubic: [0.32, 0, 0.67, 0],
+  easeOutCubic: [0.33, 1, 0.68, 1],
+  easeInOutCubic: [0.65, 0, 0.35, 1],
+  easeInQuart: [0.5, 0, 0.75, 0],
+  easeOutQuart: [0.25, 1, 0.5, 1],
+  easeInOutQuart: [0.76, 0, 0.24, 1],
+  easeInQuint: [0.64, 0, 0.78, 0],
+  easeOutQuint: [0.22, 1, 0.36, 1],
+  easeInOutQuint: [0.83, 0, 0.17, 1],
+  easeInExpo: [0.7, 0, 0.84, 0],
+  easeOutExpo: [0.16, 1, 0.3, 1],
+  easeInOutExpo: [0.87, 0, 0.13, 1],
+  easeInCirc: [0.55, 0, 1, 0.45],
+  easeOutCirc: [0, 0.55, 0.45, 1],
+  easeInOutCirc: [0.85, 0, 0.15, 1],
+  easeInBack: [0.36, 0, 0.66, -0.56],
+  easeOutBack: [0.34, 1.56, 0.64, 1],
+  easeInOutBack: [0.68, -0.6, 0.32, 1.6]
+};
+__spreadValues({
+  linear: identity
+}, _TransitionPresets);
+const useUserStore = defineStore("user", () => {
+  const username = ref("GiovanniDw");
+  const name = ref("Giovanni");
+  const url = ref(`https://api.github.com/users/${username.value}`);
+  const myData = ref(null);
+  const { isFetching, error, data } = useFetch(url.value).get().json();
+  set(myData, data);
+  console.log(myData);
+  return { username, name, url, data, myData };
+});
 const _hoisted_1 = { key: 1 };
 const _sfc_main = {
   __name: "HomeView",
@@ -11389,7 +11388,6 @@ const _sfc_main = {
     const store = useUserStore();
     console.log(" store" + store);
     const { data, username } = storeToRefs(store);
-    console.log(data.avatar_url);
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("main", null, [
         unref(data) ? (openBlock(), createBlock(BaseHero, {
@@ -11405,7 +11403,7 @@ const _sfc_main = {
           createBaseVNode(
             "p",
             null,
-            toDisplayString(unref(data).name) + " " + toDisplayString(unref(data).bio),
+            toDisplayString(unref(data).login) + " " + toDisplayString(unref(data).bio),
             1
             /* TEXT */
           )
@@ -11429,7 +11427,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./ProjectsView-e3ec371e.js"), true ? ["assets/ProjectsView-e3ec371e.js","assets/ProjectsView-ccae604b.css"] : void 0)
+      component: () => __vitePreload(() => import("./ProjectsView-3c886ffc.js"), true ? ["assets/ProjectsView-3c886ffc.js","assets/ProjectsView-ccae604b.css"] : void 0)
       // component: ProjectsView
     },
     {
@@ -11438,7 +11436,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => __vitePreload(() => import("./AboutView-d8471bb0.js"), true ? ["assets/AboutView-d8471bb0.js","assets/AboutView-19093390.css"] : void 0)
+      component: () => __vitePreload(() => import("./AboutView-d0d3aee1.js"), true ? ["assets/AboutView-d0d3aee1.js","assets/AboutView-19093390.css"] : void 0)
       // component: AboutView
     }
   ]
@@ -11446,8 +11444,8 @@ const router = createRouter({
 const main = "";
 const pinia = createPinia();
 const app = createApp(App);
-app.use(router);
 app.use(pinia);
+app.use(router);
 app.mount("#app");
 export {
   BaseHero as B,
@@ -11456,15 +11454,17 @@ export {
   createBaseVNode as a,
   unref as b,
   createElementBlock as c,
-  createCommentVNode as d,
-  createBlock as e,
-  useUserStore as f,
-  computed as g,
-  createVNode as h,
+  defineStore as d,
+  renderList as e,
+  createCommentVNode as f,
+  createBlock as g,
+  useUserStore as h,
+  computed as i,
+  createVNode as j,
   openBlock as o,
-  renderList as r,
+  ref as r,
   storeToRefs as s,
   toDisplayString as t,
-  useReposStore as u
+  useFetch as u
 };
-//# sourceMappingURL=index-65d60d48.js.map
+//# sourceMappingURL=index-6ec928d0.js.map

@@ -65,8 +65,7 @@ nav a[data-v-7a7a37b1]:first-of-type {
     margin-top: 1rem;
   }
 } */
-.hero {
-  background-color: gray;
+section[data-v-c7248654] {
   width: 100%;
 }/* color palette from <https://github.com/vuejs/theme> */
 :root {
@@ -90,11 +89,9 @@ nav a[data-v-7a7a37b1]:first-of-type {
   --vt-c-text-dark-1: var(--vt-c-white);
   --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
 
-
---z-index-top: 999;
---z-index-base: 1;
---z-index-bottom: 0; 
-
+  --z-index-top: 999;
+  --z-index-base: 1;
+  --z-index-bottom: 0;
 }
 /* semantic color variables for this project */
 :root {
