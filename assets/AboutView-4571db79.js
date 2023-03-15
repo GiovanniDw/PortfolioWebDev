@@ -1,4 +1,4 @@
-import { _ as _export_sfc, h as useUserStore, s as storeToRefs, i as computed, o as openBlock, c as createElementBlock, j as createVNode, b as unref, B as BaseHero, a as createBaseVNode, f as createCommentVNode } from "./index-6ec928d0.js";
+import { _ as _export_sfc, k as useUserStore, s as storeToRefs, b as computed, o as openBlock, c as createElementBlock, f as createVNode, e as unref, B as BaseHero, a as createBaseVNode, h as createCommentVNode } from "./index-87122033.js";
 const AboutView_vue_vue_type_style_index_0_lang = "";
 const _hoisted_1 = { class: "about" };
 const _hoisted_2 = {
@@ -46,4 +46,4 @@ const AboutView = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/Gio
 export {
   AboutView as default
 };
-//# sourceMappingURL=AboutView-d0d3aee1.js.map
+//# sourceMappingURL=AboutView-4571db79.js.map
