@@ -1,18 +1,20 @@
 <script setup>
-import RepoItem from "@/components/RepoItem.vue";
+import RepoItem from '@/components/RepoItem.vue'
 
-import { useReposStore } from "@/stores/repos";
-import { storeToRefs } from "pinia";
-const store = useReposStore();
-const { data } = storeToRefs(store);
+import { useReposStore } from '@/stores/repos'
+import { storeToRefs } from 'pinia'
+const store = useReposStore()
+const { data } = storeToRefs(store)
 </script>
 
 <template>
   <main class="project">
-    <h1>Projects</h1>
-    <div v-if="data" class="grid">
-      <RepoItem v-for="repo in data" :data="repo" :key="repo.id" />
-    </div>
+    <section>
+      <h1>Projects</h1>
+      <div v-if="data" class="grid">
+        <RepoItem v-for="repo in data" :data="repo" :key="repo.id" />
+      </div>
+    </section>
   </main>
 </template>
 

@@ -1,16 +1,16 @@
 <script setup>
-defineProps({
-  title: String,
-  data: Object
-})
+  defineProps({
+    title: String,
+    data: Object,
+  });
 
-// if (data.value) {
-//   console.log(data.value)
-// }
+  // if (data.value) {
+  //   console.log(data.value)
+  // }
 </script>
 
 <template>
-  <section class="hero">
+  <section>
     <div class="image">
       <!-- <img v-if='data' :src="data.avatar_url" alt="" /> -->
     </div>
@@ -19,9 +19,9 @@ defineProps({
 </template>
 
 <style scoped lang="scss">
-section {
-  // min-height: 80vh;
-  // background-color: gray;
-  width: 100%;
-}
+  section {
+    // min-height: 80vh;
+    // background-color: gray;
+    width: 100%;
+  }
 </style>

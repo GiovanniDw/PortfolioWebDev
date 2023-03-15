@@ -1,7 +1,7 @@
 <script setup>
 defineProps({
-  data: Object,
-});
+  data: Object
+})
 
 // if (data.value) {
 //   console.log(data.value);

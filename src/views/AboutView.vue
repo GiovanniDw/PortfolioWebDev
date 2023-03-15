@@ -1,14 +1,14 @@
 <script setup>
-import { computed } from "vue";
-import BaseHero from "@/components/BaseHero.vue";
-import { useUserStore } from "@/stores/user";
-import { storeToRefs } from "pinia";
-const store = useUserStore();
-const { data, username } = storeToRefs(store);
+import { computed } from 'vue'
+import BaseHero from '@/components/BaseHero.vue'
+import { useUserStore } from '@/stores/user'
+import { storeToRefs } from 'pinia'
+const store = useUserStore()
+const { data, username } = storeToRefs(store)
 
 const getImageUrl = computed(() => {
-  return data.avatar_url;
-});
+  return data.avatar_url
+})
 </script>
 
 <template>

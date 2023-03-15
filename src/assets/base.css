@@ -20,11 +20,9 @@
   --vt-c-text-dark-1: var(--vt-c-white);
   --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
 
-
---z-index-top: 999;
---z-index-base: 1;
---z-index-bottom: 0; 
-
+  --z-index-top: 999;
+  --z-index-base: 1;
+  --z-index-bottom: 0;
 }
 
 /* semantic color variables for this project */

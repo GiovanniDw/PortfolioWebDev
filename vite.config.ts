@@ -5,8 +5,8 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  homepage: 'https://GiovanniDw.github.io/PortfolioWebDev/',
   base: '/PortfolioWebDev/',
+  mode: 'development',
   plugins: [vue()],
   define: {
     global: {},
