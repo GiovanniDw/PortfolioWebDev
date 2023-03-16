@@ -1,7 +1,7 @@
 import { Octokit } from 'octokit'
 
 const octokit = new Octokit({
-  auth: process.env.TOKEN
+  auth: process.env.GITHUB_TOKEN
 })
 
 await octokit.request('GET /octocat', {})

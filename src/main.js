@@ -1,6 +1,12 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { MotionPlugin } from '@vueuse/motion'
+import {
+  createSharedElementDirective,
+  SharedElementRouteGuard,
+  SharedElementDirective
+} from 'v-shared-element'
+
 
 import App from './App.vue'
 import router from './router/'
@@ -13,8 +19,12 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 app.use(MotionPlugin)
-
+app.use(SharedElementDirective, {
+  
+})
 app.mount('#app')
+
+router.beforeEach(SharedElementRouteGuard)
 
 // const userStore = useUserStore()
 // const reposStore = useReposStore()

@@ -9,20 +9,27 @@
   --color-black-mute: #282828;
 
   --color-indigo: #2c3e50;
+  --color-blue:#396AFC;
+  --color-blue-hsl: 225, 97%, 61%;
 
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+  --color-divider-light-1: rgba(60, 60, 60, 0.29);
+  --color-divider-light-2: rgba(60, 60, 60, 0.12);
+  --color-divider-dark-1: rgba(84, 84, 84, 0.65);
+  --color-divider-dark-2: rgba(84, 84, 84, 0.48);
 
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  --color-text-light-1: var(--color-indigo);
+  --color-text-light-2: rgba(60, 60, 60, 0.66);
+  --color-text-dark-1: var(--color-white);
+  --color-text-dark-2: rgba(235, 235, 235, 0.64);
 
   --z-index-top: 999;
   --z-index-base: 1;
   --z-index-bottom: 0;
+
+  --padding-s:1em;
+  --padding-m:1.5em;
+  --padding-l:2em;
+
 }
 
 /* semantic color variables for this project */
@@ -30,27 +37,26 @@
   --color-background: var(--color-white);
   --color-background-soft: var(--color-white-soft);
   --color-background-mute: var(--color-white-mute);
+  --color-border: var(--color-divider-light-2);
+  --color-border-hover: var(--color-divider-light-1);
 
-  --color-border: var(--c-divider-light-2);
-  --color-border-hover: var(--c-divider-light-1);
-
-  --color-heading: var(--c-text-light-1);
-  --color-text: var(--c-text-light-1);
+  --color-heading: var(--color-text-light-1);
+  --color-text: var(--color-text-light-1);
 
   --section-gap: 160px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: var(--c-black);
-    --color-background-soft: var(--c-black-soft);
-    --color-background-mute: var(--c-black-mute);
+    --color-background: var(--color-black);
+    --color-background-soft: var(--color-black-soft);
+    --color-background-mute: var(--color-black-mute);
 
-    --color-border: var(--c-divider-dark-2);
-    --color-border-hover: var(--c-divider-dark-1);
+    --color-border: var(--color-divider-dark-2);
+    --color-border-hover: var(--color-divider-dark-1);
 
-    --color-heading: var(--c-text-dark-1);
-    --color-text: var(--c-text-dark-2);
+    --color-heading: var(--color-text-dark-1);
+    --color-text: var(--color-text-dark-2);
   }
 }
 
@@ -76,4 +82,8 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+  width: 100%;
 }

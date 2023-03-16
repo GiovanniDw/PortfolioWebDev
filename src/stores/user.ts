@@ -1,16 +1,23 @@
-import { Octokit, App } from 'octokit'
+
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { useFetch, set } from '@vueuse/core'
+import { useFetch, set, createFetch } from '@vueuse/core'
+
 // import { requestData } from "../services/requestData";
 
 // export default getGithubUserData();
 
+
+import { useAxios } from '@vueuse/integrations/useAxios'
+
+
 export const useUserStore = defineStore('user', () => {
+  const api = "https://api.github.com/"
   const username = ref('GiovanniDw')
   const name = ref('Giovanni')
   const url = ref(`https://api.github.com/users/${username.value}`)
-  const myData = ref(null)
+  const socialsURL = ref(`${api}${username.value}/social_accounts`);
+  
   // console.log(import.meta.env.VITE_GITHUB_TOKEN);
   // console.log(request)
   // const data = ref(request)
@@ -20,10 +27,13 @@ export const useUserStore = defineStore('user', () => {
   //   count.value++
   // }
 
-  set(myData, data)
+  
+  
+  
 
-  console.log(myData)
-  return { username, name, url, data, myData }
+
+
+  return { username, name, url, data }
 })
 
 // const formatUserData = (data) => {
@@ -52,4 +62,48 @@ export const useUserStore = defineStore('user', () => {
 //       // colorScale: colorScaleValue,
 //     };
 //   });
+// }
+
+
+
+// const useMyFetch = createFetch({
+//   baseUrl: 'https://api.github.com/',
+//   options: {
+//     beforeFetch({ options }) {
+//       const myToken = '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'
+//       options.headers.Authorization = `Bearer ${myToken}`
+
+//       return { options }
+//     },
+//   },
+//   fetchOptions: {
+//     mode: 'cors',
+//   },
+// })
+
+
+
+
+
+// function getSocial() {
+//   // ✅ Read x properties in computed or actions
+//   // const { isFetching, error, data } = useFetch(socialsURL.value).get().json()
+//   // ...
+
+
+//   const { isFetching, error, data } = useMyFetch('user/social_accounts').get().json()
+
+//   // const data = await octokit.request('GET /user/social_accounts', {
+//   //   headers: {
+//   //     'X-GitHub-Api-Version': '2022-11-28'
+//   //   }
+//   // })
+
+
+
+
+
+
+
+//   return data
 // }

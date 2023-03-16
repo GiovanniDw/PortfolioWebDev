@@ -8,16 +8,15 @@
   font-weight: normal;
 }
 
-a,
-.green {
+a {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
+  color: hsla(var(--color-blue-hsl), 1);
   transition: 0.4s;
 }
 
 @media (hover: hover) {
   a:hover {
-    color: hsla(160, 100%, 37%, 0.2);
+    color: hsla(var(--color-blue-hsl), 0.3);
   }
 }
 
@@ -32,4 +31,17 @@ a,
     /* grid-template-columns: 1fr 1fr; */
     padding: 0 2rem;
   }
+}
+
+
+h1, h2, h3 {
+  font-weight: 600;
+}
+
+h2 {
+
+}
+
+.router-link-active {
+  font-weight: 600;
 }
