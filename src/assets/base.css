@@ -9,7 +9,7 @@
   --color-black-mute: #282828;
 
   --color-indigo: #2c3e50;
-  --color-blue:#396AFC;
+  --color-blue: #396afc;
   --color-blue-hsl: 225, 97%, 61%;
 
   --color-divider-light-1: rgba(60, 60, 60, 0.29);
@@ -26,10 +26,9 @@
   --z-index-base: 1;
   --z-index-bottom: 0;
 
-  --padding-s:1em;
-  --padding-m:1.5em;
-  --padding-l:2em;
-
+  --padding-s: 1em;
+  --padding-m: 1.5em;
+  --padding-l: 2em;
 }
 
 /* semantic color variables for this project */

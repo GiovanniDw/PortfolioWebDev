@@ -13,8 +13,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      "./runtimeConfig": "./runtimeConfig.browser",
+      '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
   css: {

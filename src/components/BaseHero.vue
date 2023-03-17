@@ -10,7 +10,7 @@
       <img :src="data.avatar_url" alt="" />
     </div>
     <div class="content">
-      <h2>👋Hi</h2>
+      <h2>👋 Hi</h2>
       {{ data.bio }}
     </div>
   </section>

@@ -33,15 +33,18 @@ a {
   }
 }
 
-
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: 600;
 }
 
 h2 {
-
 }
 
 .router-link-active {
   font-weight: 600;
 }
+ p{
+  color: var(--color-text);
+ }

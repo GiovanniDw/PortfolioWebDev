@@ -31,9 +31,7 @@
     </nav>
   </header>
   <Suspense>
-    <Transition name="page" @before-leave="beforeLeave" @after-leave="afterLeave">
-      <RouterView />
-    </Transition>
+    <RouterView />
   </Suspense>
 </template>
 
