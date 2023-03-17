@@ -14,19 +14,32 @@ const router = createRouter({
       component: HomeView
     },
     {
-      path: '/projects',
-      name: 'projects',
-      component: ProjectsView
-    },
-    {
-      path: '/projects/:id',
-      name: 'project',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: ProjectsView
-      // component: ProjectsView
+      path: '/projects/',
+      component: ProjectsView,
+      children: [
+        {
+          path: '',
+          name: '/projects',
+          component: RepoItem,
+          props: true
+        },
+        {
+          path: ':id',
+          name: 'project',
+          component: RepoItem,
+          props: true
+        }
+      ]
     }
+    // ,{
+    //     path: '/projects/:id',
+    //     name: 'project',
+    //     // route level code-splitting
+    //     // this generates a separate chunk (About.[hash].js) for this route
+    //     // which is lazy-loaded when the route is visited.
+    //     component: ProjectsView
+    //     // component: ProjectsView
+    //   }
     // {
     //   path: '/about',
     //   name: 'about',

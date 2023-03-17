@@ -18,7 +18,7 @@
   // const { data, setID, id } = storeToRefs(store);
   const route = useRoute();
 
-  const { id, setID } = storeToRefs(store);
+  const { id, setID, data } = storeToRefs(store);
   // const projectID = route.params.id;
   const projectID = parseInt(route.params.id);
   // const product = products.find(id)
@@ -26,7 +26,7 @@
 
   // console.log(routeParams);
 
-  const selectedProject = ref(false);
+  const selectedProject = ref({});
 
   // eslint-disable-next-line vue/return-in-computed-property
   const selectProject = computed(() => {
@@ -34,20 +34,23 @@
     //   const selectedID = id.value;
     // }
 
-    const { data, id } = props;
-    if (!data.value) {
+    // const { data, id } = props;
+    if (!id.value) {
       console.log(id.value);
+      return false;
+    } else if (!data.value) {
+      return false;
     }
 
-    data.forEach((project, index) => {
+    data.value.forEach((project, index) => {
       // has access to outer scope `parentMessage`
 
       if (project.id == route.params.id) {
         console.log(`${id}+ ${route.params.id}`);
         return (selectedProject.value = project);
       }
-      return null;
 
+      return;
       // but `item` and `index` are only available in here
     });
     return selectedProject.value;
@@ -64,36 +67,45 @@
   if (route.params.id) {
     id.value = route.params.id;
   }
+
+  const computedList = computed(() => {
+    if (!data.value) {
+      return;
+    }
+    console.log(data.value);
+
+    return data.value.filter((item) => {
+      return item.homepage !== null;
+    });
+  });
 </script>
 
 <template>
   <section class="projects">
-    <router-view>
-      <template v-if="!id">
-        <div name="projects">
-          <article v-for="project in data" :key="project.id">
-            <RouterLink
-              :to="{
-                name: 'project',
-                params: { id: project.id },
-              }"
-            >
-              <h3 v-shared-element:[project.id]>{{ project.name }}</h3>
-              <p>Size {{ project.size }}</p>
-              <p>{{ project.language }}</p>
-              <a :href="project.html_url">{{ project.html_url }}</a>
-            </RouterLink>
-          </article>
-        </div>
-      </template>
-      <template v-else>
-        <div name="project">
-          <article>
-            <h3 v-shared-element:[route.params.id]>{{ selectProject.name }}</h3>
-          </article>
-        </div>
-      </template>
-    </router-view>
+    <template v-if="!id">
+      <div name="projects">
+        <article v-for="project in computedList" :key="project.id">
+          <RouterLink
+            :to="{
+              name: 'project',
+              params: { id: project.id },
+            }"
+          >
+            <h3 v-shared-element:[project.id]>{{ project.name }}</h3>
+            <p>Size {{ project.size }}</p>
+            <p>{{ project.language }}</p>
+            <a :href="project.html_url">{{ project.html_url }}</a>
+          </RouterLink>
+        </article>
+      </div>
+    </template>
+    <template v-else>
+      <div name="project" v-if="selectProject">
+        <article :key="selectProject.id">
+          <h3 v-shared-element:[route.params.id]>{{ selectProject.name }}</h3>
+        </article>
+      </div>
+    </template>
   </section>
 </template>
 

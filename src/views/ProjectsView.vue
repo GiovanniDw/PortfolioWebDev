@@ -44,7 +44,8 @@
   <main class="project">
     <section>
       <h1>Projects</h1>
-      <RepoItem :data="computedList" :id="id" />
+
+      <router-view :data="computedList" :id="id" />
     </section>
   </main>
 </template>
