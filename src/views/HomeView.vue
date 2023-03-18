@@ -12,22 +12,5 @@
 </script>
 
 <template>
-  <main>
-    <h1
-      class="home-text"
-      v-shared-element:text="{
-        includeChildren: true,
-      }"
-    >
-      Home
-    </h1>
-    <BaseHero :data="data" />
-
-    <div>
-      <p v-if="data">
-        Username:{{ data.login }}
-        {{ data.bio }}
-      </p>
-    </div>
-  </main>
+  <BaseHero :data="data" />
 </template>

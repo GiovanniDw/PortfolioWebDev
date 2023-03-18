@@ -1,4 +1,5 @@
 <script setup>
+  import { RouterLink } from "vue-router";
   defineProps({
     data: Object,
   });
@@ -11,7 +12,11 @@
     </div>
     <div class="content">
       <h2>👋 Hi</h2>
-      {{ data.bio }}
+      <p>
+        {{ data.bio }}
+      </p>
+      <br />
+      <p>Checkout my <RouterLink to="/projects">Projects</RouterLink></p>
     </div>
   </section>
 </template>
