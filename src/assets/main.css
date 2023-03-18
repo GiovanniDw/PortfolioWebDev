@@ -42,7 +42,7 @@ h1,
 h2,
 h3 {
   font-weight: 600;
-  display: inline-block;
+  /* display: inline-block; */
 }
 
 h2 {

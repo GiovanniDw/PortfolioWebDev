@@ -17,7 +17,7 @@ const app = createApp(App)
 
 app.use(pinia)
 app.use(router)
-app.use(SharedElementDirective, {easing: "ease",  duration: "300ms",  endDuration: "150ms",  zIndex: 99999,  compositeOnly: false,  includeChildren: false})
+app.use(SharedElementDirective, {easing: "ease",  duration: "600ms",  endDuration: "150ms",  zIndex: 1,  compositeOnly: true,  includeChildren: true})
 
 router.beforeEach(SharedElementRouteGuard)
 

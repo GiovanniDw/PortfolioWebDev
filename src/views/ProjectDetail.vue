@@ -46,9 +46,11 @@
   <section>
     <article class="project" v-if="project" v-shared-element:[route.params.id]>
       <h3>{{ project.name }}</h3>
-      <p>Size {{ project.size }}</p>
-      <p>{{ project.language }}</p>
-      <a :href="project.html_url">{{ project.html_url }}</a>
+      <div name="content">
+        <p>Size {{ project.size }}</p>
+        <p>{{ project.language }}</p>
+        <a :href="project.html_url">{{ project.html_url }}</a>
+      </div>
     </article>
     <article v-if="loading">
       <h3>Loading</h3>
@@ -60,6 +62,11 @@
 </template>
 
 <style scoped lang="scss">
+  article {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+  }
   h1 {
     padding-left: 1em;
     text-align: left;

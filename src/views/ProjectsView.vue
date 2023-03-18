@@ -58,9 +58,11 @@
           }"
         >
           <h3>{{ project.name }}</h3>
-          <p>Size {{ project.size }}</p>
-          <p>{{ project.language }}</p>
-          <a :href="project.html_url">{{ project.html_url }}</a>
+          <div name="content">
+            <p>Size {{ project.size }}</p>
+            <p>{{ project.language }}</p>
+            <a :href="project.html_url">Open {{ project.name }}}</a>
+          </div>
         </RouterLink>
       </article>
     </div>

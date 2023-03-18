@@ -32,26 +32,16 @@
     </nav>
   </header>
   <main>
-    <h1
-    class="home-text"
-    v-shared-element:text="{
-      includeChildren: true,
-    }"
-  >
-    Projects
-  </h1>
-    <Suspense>
-      <RouterView v-slot="{ Component }">
-        <Transition
-          @before-leave="beforeLeave"
-          @after-leave="afterLeave"
-          name="fade-in"
-          mode="in-out"
-        >
-          <Component :is="Component" />
-        </Transition>
-      </RouterView>
-    </Suspense>
+    <RouterView v-slot="{ Component }">
+      <Transition
+        @before-leave="beforeLeave"
+        @after-leave="afterLeave"
+        name="fade-in"
+        mode="out-in"
+      >
+        <Component :is="Component" />
+      </Transition>
+    </RouterView>
   </main>
 </template>
 
@@ -156,11 +146,12 @@
     }
 
     &-leave-active {
+      position: absolute;
       transition: opacity 800ms cubic-bezier(0.55, 0, 0.1, 1);
     }
 
     &-enter {
-      opacity: 0;
+      opacity: 1;
     }
 
     &-enter-to {
