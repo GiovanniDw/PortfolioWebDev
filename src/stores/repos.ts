@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed, toRefs, watch, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { useFetch, until, useAsyncState } from '@vueuse/core';
-
+import {marked} from "marked"
 // import { requestData } from "../services/requestData";
 
 // export default getGithubUserData();
@@ -20,7 +20,7 @@ export const useReposStore = defineStore('repos', () => {
   const projects = ref([]);
   const loading = ref(false);
   console.log(route.params.id)
-  
+  const projectMD = ref()
 const error = ref(null)
 
   // console.log(import.meta.env.VITE_GITHUB_TOKEN);
@@ -66,6 +66,7 @@ async function fetchProject(id) {
 
 
 
+
   // setId(route.params.id)
   // const repos = ref(data.value)
 
@@ -83,17 +84,7 @@ async function fetchProject(id) {
   // })
 
 
-  // const projectsList = computed(() => {
-  //   if (!data.value) {
-  //     return;
-  //   }
-  //   console.log(data.value);
-  //   console.log(projects.value);
-  //   return data.value.filter((item) => {
-  //     return item.homepage !== null;
-  //   });
-  // });
 
 
-  return { username, name, id, setId, project,projects, loading, fetchProject }
+  return { username, name, id, setId, project,projects, loading, fetchProject,projectMD }
 })

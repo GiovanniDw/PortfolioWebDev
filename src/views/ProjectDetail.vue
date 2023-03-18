@@ -2,15 +2,18 @@
   import { ref, computed } from "vue";
   import { storeToRefs } from "pinia";
   import { useReposStore } from "@/stores/repos";
-  import { useRepoStore } from "@/stores/repo";
+  import { marked } from "marked";
   import {
     onBeforeRouteLeave,
     onBeforeRouteUpdate,
     RouterLink,
     useRoute,
   } from "vue-router";
+  import { useFetch } from "@vueuse/core";
+  import VueMarkdown from "vue-markdown-render";
   const route = useRoute();
   const repos = useReposStore();
+  const projectMD = ref("");
   // const repo = useRepoStore();
   const { project, loading, error, id } = storeToRefs(repos);
   const props = defineProps({
@@ -39,12 +42,18 @@
   // console.log(project.value);
   // const getID = computed(() => repos);
   // console.log(getID.value);
+
   repos.fetchProject(route.params.id);
+
+  // const ProjectMarkdown = computed(() => marked(projectMD.value));
 </script>
 
 <template>
   <section>
     <article class="project" v-if="project" v-shared-element:[route.params.id]>
+      <img
+        :src="`https://opengraph.githubassets.com/187af8fe4f0c5fdf671f74087c5ff1174cc59dff718dd0fbb10bd3c6af271c18/GiovanniDw/${project.name}`"
+      />
       <h3>{{ project.name }}</h3>
       <div name="content">
         <p>Size {{ project.size }}</p>

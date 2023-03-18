@@ -57,6 +57,9 @@
             props: { project },
           }"
         >
+          <img
+            :src="`https://opengraph.githubassets.com/187af8fe4f0c5fdf671f74087c5ff1174cc59dff718dd0fbb10bd3c6af271c18/GiovanniDw/${project.name.toString()}`"
+          />
           <h3>{{ project.name }}</h3>
           <div name="content">
             <p>Size {{ project.size }}</p>
