@@ -15,13 +15,14 @@ import '@/assets/main.css'
 const pinia = createPinia()
 const app = createApp(App)
 
-app.use(SharedElementDirective, {})
 app.use(pinia)
 app.use(router)
+app.use(SharedElementDirective, {easing: "ease",  duration: "300ms",  endDuration: "150ms",  zIndex: 99999,  compositeOnly: false,  includeChildren: false})
+
+router.beforeEach(SharedElementRouteGuard)
 
 app.mount('#app')
 
-router.beforeEach(SharedElementRouteGuard)
 
 // const userStore = useUserStore()
 // const reposStore = useReposStore()

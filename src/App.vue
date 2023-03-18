@@ -3,6 +3,7 @@
   import avatar from "@/assets/avatar.png";
 
   function beforeLeave(el) {
+    console.log(el);
     const { top } = el.getBoundingClientRect();
     el.style.position = "fixed";
     el.style.top = `${top}px`;
@@ -30,12 +31,31 @@
       <!-- <RouterLink to="/about">About Me</RouterLink> -->
     </nav>
   </header>
-  <Suspense>
-    <RouterView />
-  </Suspense>
+  <main>
+    <h1
+    class="home-text"
+    v-shared-element:text="{
+      includeChildren: true,
+    }"
+  >
+    Projects
+  </h1>
+    <Suspense>
+      <RouterView v-slot="{ Component }">
+        <Transition
+          @before-leave="beforeLeave"
+          @after-leave="afterLeave"
+          name="fade-in"
+          mode="in-out"
+        >
+          <Component :is="Component" />
+        </Transition>
+      </RouterView>
+    </Suspense>
+  </main>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
   header {
     display: flex;
     line-height: 1.5;
@@ -88,31 +108,67 @@
   nav a:first-of-type {
     border: 0;
   }
-  /* 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+
+  @media (min-width: 1024px) {
+    header {
+      display: flex;
+      place-items: center;
+      padding-right: calc(var(--section-gap) / 2);
+    }
+
+    .logo {
+      margin: 0 2rem 0 0;
+    }
+
+    header .wrapper {
+      display: flex;
+      place-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    nav {
+      text-align: left;
+      margin-left: -1rem;
+      font-size: 1rem;
+
+      padding: 1rem 0;
+      margin-top: 1rem;
+    }
   }
 
-  .logo {
-    margin: 0 2rem 0 0;
+  .fade-in {
+    &-enter-active {
+      transition: opacity 800ms cubic-bezier(0.55, 0, 0.1, 1);
+    }
+
+    &-enter {
+      opacity: 0;
+    }
+
+    &-enter-to {
+      opacity: 1;
+    }
   }
 
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+  .fade-out-in {
+    &-enter-active {
+      transition: opacity 800ms cubic-bezier(0.55, 0, 0.1, 1);
+    }
 
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
+    &-leave-active {
+      transition: opacity 800ms cubic-bezier(0.55, 0, 0.1, 1);
+    }
 
-    padding: 1rem 0;
-    margin-top: 1rem;
+    &-enter {
+      opacity: 0;
+    }
+
+    &-enter-to {
+      opacity: 1;
+    }
+
+    &-leave-to {
+      opacity: 0;
+    }
   }
-} */
 </style>

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import ProjectsView from '@/views/ProjectsView.vue'
-import RepoItem from '@/components/RepoItem.vue'
+import ProjectDetail from '../views/ProjectDetail.vue'
 // import ProjectView from '@/views/ProjectView.vue'
 // import ProjectsView from '../views/ProjectsView.vue'
 
@@ -15,31 +15,22 @@ const router = createRouter({
     },
     {
       path: '/projects/',
-      component: ProjectsView,
-      children: [
-        {
-          path: '',
-          name: '/projects',
-          component: RepoItem,
-          props: true
-        },
-        {
-          path: ':id',
-          name: 'project',
-          component: RepoItem,
-          props: true
-        }
-      ]
+      component: () => import('@/views/ProjectsView.vue'),
+      props:true
+      // component: ProjectsView,
+      
     }
-    // ,{
-    //     path: '/projects/:id',
-    //     name: 'project',
-    //     // route level code-splitting
-    //     // this generates a separate chunk (About.[hash].js) for this route
-    //     // which is lazy-loaded when the route is visited.
-    //     component: ProjectsView
-    //     // component: ProjectsView
-    //   }
+    ,{
+        path: '/projects/:id',
+        name: 'project',
+        // route level code-splitting
+        // this generates a separate chunk (About.[hash].js) for this route
+        // which is lazy-loaded when the route is visited.
+        // component: ProjectDetail,
+        component: () => import('@/views/ProjectDetail.vue'),
+        props:true
+        // component: ProjectsView
+      }
     // {
     //   path: '/about',
     //   name: 'about',
