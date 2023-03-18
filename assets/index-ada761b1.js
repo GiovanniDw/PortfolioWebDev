@@ -11989,7 +11989,7 @@ const _export_sfc = (sfc, props) => {
   }
   return target;
 };
-const _hoisted_1$2 = ["src"];
+const _hoisted_1$1 = ["src"];
 const _sfc_main$2 = {
   __name: "App",
   setup(__props) {
@@ -12020,7 +12020,7 @@ const _sfc_main$2 = {
                 createBaseVNode("img", {
                   src: unref(avatar),
                   alt: "Profile"
-                }, null, 8, _hoisted_1$2)
+                }, null, 8, _hoisted_1$1)
               ]),
               _: 1
               /* STABLE */
@@ -12123,17 +12123,24 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
 };
 const BaseHero_vue_vue_type_style_index_0_scoped_c7248654_lang = "";
 const _withScopeId = (n) => (pushScopeId("data-v-c7248654"), n = n(), popScopeId(), n);
-const _hoisted_1$1 = {
+const _hoisted_1 = {
   key: 0,
   class: "hero"
 };
-const _hoisted_2$1 = { class: "image" };
+const _hoisted_2 = { class: "image" };
 const _hoisted_3 = ["src"];
 const _hoisted_4 = { class: "content" };
 const _hoisted_5 = /* @__PURE__ */ _withScopeId(() => /* @__PURE__ */ createBaseVNode(
   "h2",
   null,
   "👋 Hi",
+  -1
+  /* HOISTED */
+));
+const _hoisted_6 = /* @__PURE__ */ _withScopeId(() => /* @__PURE__ */ createBaseVNode(
+  "br",
+  null,
+  null,
   -1
   /* HOISTED */
 ));
@@ -12144,8 +12151,8 @@ const _sfc_main$1 = {
   },
   setup(__props) {
     return (_ctx, _cache) => {
-      return __props.data ? (openBlock(), createElementBlock("section", _hoisted_1$1, [
-        createBaseVNode("div", _hoisted_2$1, [
+      return __props.data ? (openBlock(), createElementBlock("section", _hoisted_1, [
+        createBaseVNode("div", _hoisted_2, [
           createBaseVNode("img", {
             src: __props.data.avatar_url,
             alt: ""
@@ -12153,11 +12160,24 @@ const _sfc_main$1 = {
         ]),
         createBaseVNode("div", _hoisted_4, [
           _hoisted_5,
-          createTextVNode(
-            " " + toDisplayString(__props.data.bio),
+          createBaseVNode(
+            "p",
+            null,
+            toDisplayString(__props.data.bio),
             1
             /* TEXT */
-          )
+          ),
+          _hoisted_6,
+          createBaseVNode("p", null, [
+            createTextVNode("Checkout my "),
+            createVNode(unref(RouterLink), { to: "/projects" }, {
+              default: withCtx(() => [
+                createTextVNode("Projects")
+              ]),
+              _: 1
+              /* STABLE */
+            })
+          ])
         ])
       ])) : createCommentVNode("v-if", true);
     };
@@ -12665,34 +12685,13 @@ const useUserStore = defineStore("user", () => {
   const { isFetching, error, data } = useFetch(url.value).get().json();
   return { username, name, url, data };
 });
-const _hoisted_1 = { class: "home-text" };
-const _hoisted_2 = { key: 0 };
 const _sfc_main = {
   __name: "HomeView",
   setup(__props) {
     const store = useUserStore();
     const { data, username, socials, getSocial } = storeToRefs(store);
     return (_ctx, _cache) => {
-      const _directive_shared_element = resolveDirective("shared-element");
-      return openBlock(), createElementBlock("main", null, [
-        withDirectives((openBlock(), createElementBlock("h1", _hoisted_1, [
-          createTextVNode(" Home ")
-        ])), [
-          [_directive_shared_element, {
-            includeChildren: true
-          }, "text"]
-        ]),
-        createVNode(BaseHero, { data: unref(data) }, null, 8, ["data"]),
-        createBaseVNode("div", null, [
-          unref(data) ? (openBlock(), createElementBlock(
-            "p",
-            _hoisted_2,
-            " Username:" + toDisplayString(unref(data).login) + " " + toDisplayString(unref(data).bio),
-            1
-            /* TEXT */
-          )) : createCommentVNode("v-if", true)
-        ])
-      ]);
+      return openBlock(), createBlock(BaseHero, { data: unref(data) }, null, 8, ["data"]);
     };
   }
 };
@@ -14864,7 +14863,7 @@ const router = createRouter({
     },
     {
       path: "/projects/",
-      component: () => __vitePreload(() => import("./ProjectsView-8753192f.js"), true ? [] : void 0),
+      component: () => __vitePreload(() => import("./ProjectsView-62fbb38f.js"), true ? [] : void 0),
       props: true
       // component: ProjectsView,
     },
@@ -14875,7 +14874,7 @@ const router = createRouter({
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
       // component: ProjectDetail,
-      component: () => __vitePreload(() => import("./ProjectDetail-21f97566.js"), true ? [] : void 0),
+      component: () => __vitePreload(() => import("./ProjectDetail-d876b7f2.js"), true ? [] : void 0),
       props: true
       // component: ProjectsView
     }
@@ -14920,4 +14919,4 @@ export {
   useRoute as u,
   withDirectives as w
 };
-//# sourceMappingURL=index-7f3687a8.js.map
+//# sourceMappingURL=index-ada761b1.js.map
